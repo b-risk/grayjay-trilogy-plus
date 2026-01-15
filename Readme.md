@@ -1,16 +1,8 @@
-# Example source for Grayjay
-
 ### Features
-
+This a Grayjay plugin for the platform TrilogyPlus.
 
 ### Work in progress (WIP)
-
-
-### Grayjay
-
-
-### Platform
-
+Literally everything, don't try this yet. If you want to give me feedback feel free to.
 
 ## Development
 

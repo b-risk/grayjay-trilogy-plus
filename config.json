@@ -10,8 +10,6 @@
   "version": 1,
   "iconUrl": "./icon.png",
   "id": "ca4747c0-7fff-4909-a448-545f54e7f8ee",
-  "scriptSignature": "<SOURCE_SIGNATURE>",
-  "scriptPublicKey": "<SOURCE_PUBLIC_KEY>",
   "packages": [
     "Http",
     "DOMParser"
