@@ -1,8 +1,8 @@
 {
-  "name": "<SOURCE_TITLE>",
+  "name": "Trilogy Plus",
   "platformUrl": "<SOURCE_PLATFORM_URL>",
-  "description": "<SOURCE_DESCRIPTION>",
-  "author": "<SOURCE_AUTHOR_NAMES>",
+  "description": "Trilogy Plus is an immersive streaming service with the best entertainment in scambaiting, scam-busting, travel and true crime.",
+  "author": "Freeb",
   "authorUrl": "<SOURCE_AUTHOR_URL>",
   "sourceUrl": "<SOURCE_DIST_URL>",
   "scriptUrl": "./script.js",
@@ -19,19 +19,17 @@
   "allowEval": false,
   "allowAllHttpHeaderAccess": false,
   "allowUrls": [
-    "<SOURCE_PLATFORM_BASE_DOMAIN>",
-    "*.<SOURCE_PLATFORM_BASE_DOMAIN>",
-    ".<SOURCE_PLATFORM_BASE_DOMAIN>"
+    "https://trilogyplus.com/"
   ],
   "authentication": {
-    "loginUrl": "<SOURCE_PLATFORM_LOGIN_URL>",
-    "completionUrl": "<SOURCE_PLATFORM_LOGIN_COMPLETION_URL>",
+    "loginUrl": "https://www.trilogyplus.com/login",
+    "completionUrl": "https://www.trilogyplus.com/browse",
     "domainHeadersToFind": {
-      "<SOURCE_PLATFORM_BASE_DOMAIN>": [
+      "https://www.trilogyplus.com/": [
         "Authorization"
       ]
     },
-    "userAgent": "<SOURCE_USER_AGENT>"
+    "userAgent": "Android"
   },
   "supportedClaimTypes": [
     0
