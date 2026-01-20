@@ -1,4 +1,0 @@
-.bin
-*.pem
-.env
-node_modules/
