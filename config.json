@@ -8,7 +8,7 @@
   "scriptUrl": "./script.js",
   "repositoryUrl": "https://github.com/b-risk/grayjay-trilogy-plus",
   "version": 1,
-  "iconUrl": "./icon.png",
+  "iconUrl": "./TrilogyPlusIcon.png",
   "id": "ca4747c0-7fff-4909-a448-545f54e7f8ee",
   "packages": [
     "Http",
@@ -21,7 +21,8 @@
   ],
   "authentication": {
     "loginUrl": "https://www.trilogyplus.com/login",
-    "cookiesToFind": [ "logged_in" ],
+    "completionUrl": "https://www.trilogyplus.com/browse*",
+    "cookiesToFind": [ "_session" ],
     "userAgent": "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.230 Mobile Safari/537.36"
   }
 }
