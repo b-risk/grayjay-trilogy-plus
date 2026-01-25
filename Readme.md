@@ -1,5 +1,2 @@
-### Features
-This a Grayjay plugin for the platform TrilogyPlus.
-
 ### Work in progress (WIP)
-Plugin currently not functional.
+Working on getting authentication to work, then I will add home page, search, video support, etc.
