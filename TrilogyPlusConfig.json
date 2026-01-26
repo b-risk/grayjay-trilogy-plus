@@ -5,7 +5,7 @@
   "author": "Freeb",
   "authorUrl": "https://github.com/b-risk",
   "sourceUrl": "https://raw.githubusercontent.com/b-risk/grayjay-trilogy-plus/refs/heads/main/config.json",
-  "scriptUrl": "./script.js",
+  "scriptUrl": "./TrilogyPlusScript.js",
   "repositoryUrl": "https://github.com/b-risk/grayjay-trilogy-plus",
   "version": 1,
   "iconUrl": "./TrilogyPlusIcon.png",
