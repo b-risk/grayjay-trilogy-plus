@@ -17,7 +17,8 @@
   "allowEval": false,
   "allowAllHttpHeaderAccess": false,
   "allowUrls": [
-    "trilogyplus.com"
+    "trilogyplus.com",
+    "api.vhx.com"
   ],
   "authentication": {
     "loginUrl": "https://www.trilogyplus.com/login",
