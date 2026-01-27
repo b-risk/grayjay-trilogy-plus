@@ -1,18 +1,15 @@
+const REGEX_EMBED_URL = /embed_url:\s*"?(https:\/\/embed\.vhx\.tv\/videos\/\d+)"?/;
+
+let config = {};
+
 source.enable = function (conf) {
-    /**
-     * @param conf: SourceV8PluginConfig (the SomeConfig.js)
-     */
+    config = conf;
 }
 
-source.getHome = function(continuationToken) {
-    /**
-     * @param continuationToken: any?
-     * @returns: VideoPager
-     */
-    const videos = []; // The results (PlatformVideo)
-    const hasMore = false; // Are there more pages?
-    const context = { continuationToken: continuationToken }; // Relevant data for the next page
-    return new SomeHomeVideoPager(videos, hasMore, context);
+source.getHome = function() {
+    return new ContentPager([
+        source.getContentDetails("https://www.trilogyplus.com/videos/40-club-zip-line")
+    ], false);
 }
 
 source.searchSuggestions = function(query) {
@@ -141,14 +138,12 @@ source.isContentDetailsUrl = function(url) {
 }
 
 source.getContentDetails = function(url) {
-    /**
-     * @param url: string
-     * @returns: PlatformVideoDetails
-     */
+    const html = makeGetRequest(url);
+    
+    const videoURL = extractVideoLink(html);
+    
+	return new PlatformVideoDetails({});
 
-	return new PlatformVideoDetails({
-		//... see source.js for more details
-	});
 }
 
 source.getComments = function (url, continuationToken) {
@@ -175,6 +170,39 @@ source.getSubComments = function (comment) {
 	}
 
 	return getCommentsPager(comment.context.claimId, comment.context.claimId, 1, false, comment.context.commentId);
+}
+
+
+// Helper: Make HTTP GET request
+function makeGetRequest(url) {
+    try {
+        const resp = http.GET(url, {
+            'User-Agent': config.authentication.userAgent
+        },
+        true
+    );
+        if (!resp.isOk) {
+            log(`Request failed with status ${resp.code}: ${url}`);
+            if (returnError) {
+                return { error: true, code: resp.code, body: resp.body };
+            }
+            return null;
+        }
+        return resp.body;
+    } catch (e) {
+        throw new ScriptException(`Request error: ${e.message}`);
+    }
+}
+
+// Helper: Extract video link from HTML string
+function extractVideoLink(html) {
+    const match = html.match(REGEX_EMBED_URL);
+
+    if (match) {
+        return match[1]; // Return the video link captured in the first group
+    } else {
+        return null; // Return null if no match is found
+    }
 }
 
 class SomeCommentPager extends CommentPager {
