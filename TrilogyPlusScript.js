@@ -1,3 +1,9 @@
+const PLATFORM = "Trilogy Plus"
+
+const URL_PLATFORM = "https://trilogyplus.com";
+const URL_HOMEPAGE = "https://api.vhx.com/v2/sites/156301/users/77781645/watching?per_page=12&include_events=1&include_collections=1"
+const API_HOMEPAGE_URL = "https://api.vhx.com/v2/sites/156301/collections/1130073/items";
+
 const REGEX_EMBED_URL = /embed_url:\s*"?(https:\/\/embed\.vhx\.tv\/videos\/\d+)"?/;
 
 let config = {};
@@ -7,9 +13,7 @@ source.enable = function (conf) {
 }
 
 source.getHome = function() {
-    return new ContentPager([
-        source.getContentDetails("https://www.trilogyplus.com/videos/40-club-zip-line")
-    ], false);
+    return new HomePager(getHomeResults(0), true);
 }
 
 source.searchSuggestions = function(query) {
@@ -138,7 +142,14 @@ source.isContentDetailsUrl = function(url) {
 }
 
 source.getContentDetails = function(url) {
-    const html = makeGetRequest(url);
+    const html = http.POST(
+        API_HOMEPAGE_URL,
+        `include_products_for=web&per_page=12&include_events=1`,
+        {},
+        true
+    )
+
+    throw new ScriptException(bridge.isLoggedIn() + "\n" + html.body);
     
     const videoURL = extractVideoLink(html);
     
@@ -172,15 +183,42 @@ source.getSubComments = function (comment) {
 	return getCommentsPager(comment.context.claimId, comment.context.claimId, 1, false, comment.context.commentId);
 }
 
+function getHomeResults(page) {
+    const homeResp = http.GET(URL_HOMEPAGE, {}, true);
+    
+    if (!homeResp.isOk) 
+        throw new ScriptException(`Failed to get home [${homeResp.code}]`)
+
+    const results = JSON.parse(homeResp.body);
+
+    return results.items.map(item => new PlatformVideo({
+        id: new PlatformID(PLATFORM, String(item.entity.id), config.id),
+        name: item.entity.title,
+        thumbnails: new Thumbnails([new Thumbnail(item.entity.thumbnails["16_9"].large, 0)]),
+        author: new PlatformAuthorLink(
+            new PlatformID(PLATFORM, String(item.entity.id), config.id),
+            item.entity.metadata.series.name,
+            null,
+            null
+        ),
+        datetime: parseInt((new Date(item.entity.created_at)).getTime() / 1000),
+        duration: item.entity.duration.seconds, // Access seconds here
+        viewCount: null, // Assuming you want to set it to null
+        url: item.entity.page_url,
+        shareUrl: item.entity.page_url,
+        isLive: false
+    }));
+}
 
 // Helper: Make HTTP GET request
 function makeGetRequest(url) {
     try {
-        const resp = http.GET(url, {
-            'User-Agent': config.authentication.userAgent
-        },
-        true
-    );
+        const resp = http.GET(
+            "https://trilogyplus.com/login/", 
+            { 'User-Agent': config.authentication.userAgent },
+            true
+        );
+
         if (!resp.isOk) {
             log(`Request failed with status ${resp.code}: ${url}`);
             if (returnError) {
@@ -215,17 +253,21 @@ class SomeCommentPager extends CommentPager {
     }
 }
 
-class SomeHomeVideoPager extends VideoPager {
-	constructor(results, hasMore, context) {
-		super(results, hasMore, context);
+class HomePager extends VideoPager {
+	constructor(initialResults, hasMore) {
+		super(initialResults, hasMore);
+        this.page = 0;
 	}
 	
 	nextPage() {
-		return source.getHome(this.context.continuationToken);
+        this.page++;
+        this.results = getHomeResults(this.page);
+        this.hasMore = true;
+		return this;
 	}
 }
 
-class SomeSearchVideoPager extends VideoPager {
+class SearchVideoPager extends VideoPager {
 	constructor(results, hasMore, context) {
 		super(results, hasMore, context);
 	}

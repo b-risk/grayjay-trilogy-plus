@@ -12,12 +12,13 @@
   "id": "ca4747c0-7fff-4909-a448-545f54e7f8ee",
   "packages": [
     "Http",
-    "DOMParser"
+    "Utilities"
   ],
   "allowEval": false,
   "allowAllHttpHeaderAccess": false,
   "allowUrls": [
     ".trilogyplus.com",
+    ".vhx.com",
     ".vhx.tv"
   ],
   "authentication": {
