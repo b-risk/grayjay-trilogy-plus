@@ -1,6 +1,6 @@
 // Platform information
 const PLATFORM = "Trilogy Plus"
-const URL_PLATFORM = "https://trilogyplus.com/";
+const URL_PLATFORM = "https://www.trilogyplus.com/";
 
 // Image used for channels (specific series images not yet supported)
 const ICON_TRILOGYPLUS = "https://dr56wvhu2c8zo.cloudfront.net/trilogyplus/assets/739ad5e0-ee07-4677-ac2b-c0c5ab40adb3.png";
@@ -150,7 +150,6 @@ source.getContentDetails = function(url) {
         throw new ScriptException(`Failed to retrieve video details [${videoResp.code}]`)
 
     const embedDetails = extractVideoLink(videoResp.body);
-    log(`Embed details: [${embedDetails}]`)
 
     if (!embedDetails) 
         throw new ScriptException(`Failed to extract video embed, Trilogy Plus likely changed their site.`)
@@ -161,24 +160,22 @@ source.getContentDetails = function(url) {
     
     if (!embedResp.isOk) 
         throw new ScriptException(`Failed to retrieve video [${embedResp.code}]`)
-    log(embedResp);
+    log(embedResp.body);
 
 	return new PlatformVideo({
-	    id: new PlatformID(PLATFORM, "SomeId", config.id),
+	    id: new PlatformID(PLATFORM, "32", config.id),
 	    name: "Some Video Name",
-	    thumbnails: new Thumbnails([
-			new Thumbnail("https://.../...", 720),
-			new Thumbnail("https://.../...", 1080),
-		]),
+	    thumbnails: new Thumbnails([]),
 	    author: new PlatformAuthorLink(
 		new PlatformID("SomePlatformName", "SomeAuthorID", config.id), 
 		    "SomeAuthorName", 
-		    "https://platform.com/your/channel/url", 
-		    "../url/to/thumbnail.png"),
+		    "url", 
+		    null),
 	    uploadDate: 1696880568,
 	    duration: 120,
 	    viewCount: 1234567,
-	    url: "https://platform.com/your/detail/url",
+        description: "yolo",
+	    url: embedDetails,
 	    isLive: false
     });
 
@@ -229,6 +226,7 @@ function getHomeResults(page) {
             null,
             ICON_TRILOGYPLUS
         ),
+        description: "yolo",
         datetime: parseInt((new Date(item.entity.created_at)).getTime() / 1000),
         duration: item.entity.duration.seconds,
         viewCount: null,
@@ -238,14 +236,14 @@ function getHomeResults(page) {
     }));
 }
 
-// Helper: Extract video link from HTML string
+// Extract video link from HTML string
 function extractVideoLink(html) {
     const match = html.match(REGEX_EMBED_URL);
 
     if (match) {
-        return match[1]; // Return the video link captured in the first group
+        return match[1].replace(/amp;/g, ""); // Clean up the URL
     } else {
-        return null; // Return null if no match is found
+        return null;
     }
 }
 
