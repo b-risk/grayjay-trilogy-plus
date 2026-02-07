@@ -1,10 +1,17 @@
+// Platform information
 const PLATFORM = "Trilogy Plus"
+const URL_PLATFORM = "https://trilogyplus.com/";
 
-const URL_PLATFORM = "https://trilogyplus.com";
-const URL_HOMEPAGE = "https://api.vhx.com/v2/sites/156301/users/77781645/watching?per_page=12&include_events=1&include_collections=1"
-const API_HOMEPAGE_URL = "https://api.vhx.com/v2/sites/156301/collections/1130073/items";
+// Image used for channels (specific series images not yet supported)
+const ICON_TRILOGYPLUS = "https://dr56wvhu2c8zo.cloudfront.net/trilogyplus/assets/739ad5e0-ee07-4677-ac2b-c0c5ab40adb3.png";
 
-const REGEX_EMBED_URL = /embed_url:\s*"?(https:\/\/embed\.vhx\.tv\/videos\/\d+)"?/;
+// URLs handling different pages for content
+const URL_NEWRELEASES = "https://api.vhx.com/v2/sites/156301/collections/1130073/items?include_products_for=web&per_page=12&include_events=1";
+const URL_CONTINUEWATCHING = "https://api.vhx.com/v2/sites/156301/users/77781645/watching?per_page=12&include_events=1&include_collections=1"
+
+// Regex metadata
+const REGEX_DETAILS_URL = /^https:\/\/www\.trilogyplus\.com\/videos\/[^\/]+$/;
+const REGEX_EMBED_URL = /embed_url:\s*"([^"]*)"/;
 
 let config = {};
 
@@ -133,27 +140,48 @@ source.getChannelContents = function(url, type, order, filters, continuationToke
 }
 
 source.isContentDetailsUrl = function(url) {
-    /**
-     * @param url: string
-     * @returns: boolean
-     */
-
 	return REGEX_DETAILS_URL.test(url);
 }
 
 source.getContentDetails = function(url) {
-    const html = http.POST(
-        API_HOMEPAGE_URL,
-        `include_products_for=web&per_page=12&include_events=1`,
-        {},
-        true
-    )
+    const videoResp = http.GET(url, {}, true);
+    
+    if (!videoResp.isOk) 
+        throw new ScriptException(`Failed to retrieve video details [${videoResp.code}]`)
 
-    throw new ScriptException(bridge.isLoggedIn() + "\n" + html.body);
+    const embedDetails = extractVideoLink(videoResp.body);
+    log(`Embed details: [${embedDetails}]`)
+
+    if (!embedDetails) 
+        throw new ScriptException(`Failed to extract video embed, Trilogy Plus likely changed their site.`)
     
-    const videoURL = extractVideoLink(html);
+    const embedResp = http.GET(embedDetails, {
+        referer: URL_PLATFORM
+    }, true);
     
-	return new PlatformVideoDetails({});
+    if (!embedResp.isOk) 
+        throw new ScriptException(`Failed to retrieve video [${embedResp.code}]`)
+    log(embedResp);
+
+	return new PlatformVideo({
+	    id: new PlatformID(PLATFORM, "SomeId", config.id),
+	    name: "Some Video Name",
+	    thumbnails: new Thumbnails([
+			new Thumbnail("https://.../...", 720),
+			new Thumbnail("https://.../...", 1080),
+		]),
+	    author: new PlatformAuthorLink(
+		new PlatformID("SomePlatformName", "SomeAuthorID", config.id), 
+		    "SomeAuthorName", 
+		    "https://platform.com/your/channel/url", 
+		    "../url/to/thumbnail.png"),
+	    uploadDate: 1696880568,
+	    duration: 120,
+	    viewCount: 1234567,
+	    url: "https://platform.com/your/detail/url",
+	    isLive: false
+    });
+
 
 }
 
@@ -184,7 +212,7 @@ source.getSubComments = function (comment) {
 }
 
 function getHomeResults(page) {
-    const homeResp = http.GET(URL_HOMEPAGE, {}, true);
+    const homeResp = http.GET(URL_NEWRELEASES, {}, true);
     
     if (!homeResp.isOk) 
         throw new ScriptException(`Failed to get home [${homeResp.code}]`)
@@ -197,39 +225,17 @@ function getHomeResults(page) {
         thumbnails: new Thumbnails([new Thumbnail(item.entity.thumbnails["16_9"].large, 0)]),
         author: new PlatformAuthorLink(
             new PlatformID(PLATFORM, String(item.entity.id), config.id),
-            item.entity.metadata.series.name,
+            item.entity.metadata.series.name || "Trilogy Plus",
             null,
-            null
+            ICON_TRILOGYPLUS
         ),
         datetime: parseInt((new Date(item.entity.created_at)).getTime() / 1000),
-        duration: item.entity.duration.seconds, // Access seconds here
-        viewCount: null, // Assuming you want to set it to null
+        duration: item.entity.duration.seconds,
+        viewCount: null,
         url: item.entity.page_url,
         shareUrl: item.entity.page_url,
         isLive: false
     }));
-}
-
-// Helper: Make HTTP GET request
-function makeGetRequest(url) {
-    try {
-        const resp = http.GET(
-            "https://trilogyplus.com/login/", 
-            { 'User-Agent': config.authentication.userAgent },
-            true
-        );
-
-        if (!resp.isOk) {
-            log(`Request failed with status ${resp.code}: ${url}`);
-            if (returnError) {
-                return { error: true, code: resp.code, body: resp.body };
-            }
-            return null;
-        }
-        return resp.body;
-    } catch (e) {
-        throw new ScriptException(`Request error: ${e.message}`);
-    }
 }
 
 // Helper: Extract video link from HTML string
