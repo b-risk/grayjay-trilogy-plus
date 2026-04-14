@@ -6,12 +6,17 @@ const URL_PLATFORM = "https://www.trilogyplus.com/";
 const ICON_TRILOGYPLUS = "https://dr56wvhu2c8zo.cloudfront.net/trilogyplus/assets/739ad5e0-ee07-4677-ac2b-c0c5ab40adb3.png";
 
 // URLs handling different pages for content
-const URL_NEWRELEASES = "https://api.vhx.com/v2/sites/156301/collections/1130073/items?include_products_for=web&per_page=12&include_events=1";
-const URL_CONTINUEWATCHING = "https://api.vhx.com/v2/sites/156301/users/77781645/watching?per_page=12&include_events=1&include_collections=1"
+const URL_NEWRELEASES = "https://api.vhx.com/v2/sites/156301/collections/1491720/items?include_products_for=web&per_page=12&include_events=1&include_coming_soon=1";
+const URL_FULLSHOWS = "https://api.vhx.com/v2/sites/156301/search_filters"
 
 // Regex metadata
 const REGEX_DETAILS_URL = /^https:\/\/www\.trilogyplus\.com\/videos\/[^\/]+$/;
-const REGEX_EMBED_URL = /embed_url:\s*"([^"]*)"/;
+const REGEX_VIDEO_URL = /embed_url:\s*"([^"]*)"/;
+const REGEX_VIDEO_ID = /"video","VIDEO_ID":(\d+)/;
+const REGEX_VIDEO_DESCRIPTION = /<meta\s+name="description"\s+content="([^"]*)"/i;
+const REGEX_VIDEO_TITLE = /<meta\s+property="og:title"\s+content="([^"]*)"/i;
+
+const REGEX_BEARER_TOKEN = /window\.TOKEN\s*=\s*"([^"]+)";/m;
 
 let config = {};
 
@@ -148,39 +153,62 @@ source.getContentDetails = function(url) {
     
     if (!videoResp.isOk) 
         throw new ScriptException(`Failed to retrieve video details [${videoResp.code}]`)
-
-    const embedDetails = extractVideoLink(videoResp.body);
-
-    if (!embedDetails) 
-        throw new ScriptException(`Failed to extract video embed, Trilogy Plus likely changed their site.`)
     
-    const embedResp = http.GET(embedDetails, {
-        referer: URL_PLATFORM
-    }, true);
+    const videoID = extractDetail(videoResp.body, REGEX_VIDEO_ID);
+    const bearer = extractDetail(videoResp.body, REGEX_BEARER_TOKEN);
+    const description = extractDetail(videoResp.body, REGEX_VIDEO_DESCRIPTION);
+    const title = extractDetail(videoResp.body, REGEX_VIDEO_TITLE);
     
-    if (!embedResp.isOk) 
-        throw new ScriptException(`Failed to retrieve video [${embedResp.code}]`)
-    log(embedResp.body);
+    if (!videoID || !bearer || !description || !title) 
+        throw new ScriptException(`Failed to fetch video details, Trilogy Plus likely changed their site.`)
+    
+    const videoDetails = http.GET(
+        `https://api.vhx.tv/videos/${videoID}/files`, 
+        { 
+            Authorization: `Bearer ${bearer}`,
+            Accept: 'application/json',
+            Referer: URL_PLATFORM 
+        }, 
+        true
+    );
 
-	return new PlatformVideo({
-	    id: new PlatformID(PLATFORM, "32", config.id),
-	    name: "Some Video Name",
-	    thumbnails: new Thumbnails([]),
-	    author: new PlatformAuthorLink(
-		new PlatformID("SomePlatformName", "SomeAuthorID", config.id), 
-		    "SomeAuthorName", 
-		    "url", 
-		    null),
-	    uploadDate: 1696880568,
-	    duration: 120,
-	    viewCount: 1234567,
-        description: "yolo",
-	    url: embedDetails,
-	    isLive: false
+    if (!videoDetails.isOk)
+        throw new ScriptException(`Failed to retrieve video [${embedResp.code}]`);
+
+    let sources = [];
+
+    // Loop through video sources
+    for (const source of Object.values(JSON.parse(videoDetails.body))) {
+        if (source.method == "hls") {
+            sources.push(new HLSSource({
+                name: source.codec,
+                url: source._links.source.href,
+                priority: true
+            }));
+        } 
+    }
+    
+    return new PlatformVideoDetails({
+        id: new PlatformID(PLATFORM, String(videoID), config.id),
+        name: title,
+        thumbnails: new Thumbnails([]),
+        author: new PlatformAuthorLink(
+            new PlatformID(PLATFORM, String(videoID), config.id),
+            "Trilogy Plus",
+            "https://trilogyplus.com/channel/placeholder",
+            ICON_TRILOGYPLUS
+        ),
+        url: url,
+        uploadDate: 1696880568,
+        duration: 5000,
+        viewCount: null,
+        description: description,
+        isLive: false,
+        video: new VideoSourceDescriptor(sources)
     });
 
-
 }
+
 
 source.getComments = function (url, continuationToken) {
     /**
@@ -212,7 +240,7 @@ function getHomeResults(page) {
     const homeResp = http.GET(URL_NEWRELEASES, {}, true);
     
     if (!homeResp.isOk) 
-        throw new ScriptException(`Failed to get home [${homeResp.code}]`)
+        throw new ScriptException(`Failed to get home, try relogging in [${homeResp.code}]`)
 
     const results = JSON.parse(homeResp.body);
 
@@ -226,7 +254,6 @@ function getHomeResults(page) {
             null,
             ICON_TRILOGYPLUS
         ),
-        description: "yolo",
         datetime: parseInt((new Date(item.entity.created_at)).getTime() / 1000),
         duration: item.entity.duration.seconds,
         viewCount: null,
@@ -236,16 +263,17 @@ function getHomeResults(page) {
     }));
 }
 
-// Extract video link from HTML string
-function extractVideoLink(html) {
-    const match = html.match(REGEX_EMBED_URL);
+// Extract detail using regex
+function extractDetail(html, regex) {
+    const match = html.match(regex);
 
     if (match) {
-        return match[1].replace(/amp;/g, ""); // Clean up the URL
+        return match[1]
     } else {
         return null;
     }
 }
+
 
 class SomeCommentPager extends CommentPager {
     constructor(results, hasMore, context) {

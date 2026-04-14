@@ -1,2 +1,9 @@
-### Work in progress (WIP)
-Working on getting authentication to work, then I will add home page, search, video support, etc.
+### Grayjay Trilogy Plus
+This plugin adds support for the streaming service Trilogy Plus, allowing you to use it in Grayjay.
+It treats every show as it's own channel
+
+### TODO
+- [ ] Channel (shows) support
+- [ ] Channel search
+- [ ] Support for alternative home pages (Popular, my list, etc)
+- [ ] Free videos support
