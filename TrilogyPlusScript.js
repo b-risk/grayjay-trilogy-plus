@@ -7,16 +7,29 @@ const ICON_TRILOGYPLUS = "https://dr56wvhu2c8zo.cloudfront.net/trilogyplus/asset
 
 // URLs handling different pages for content
 const URL_NEWRELEASES = "https://api.vhx.com/v2/sites/156301/collections/1491720/items?include_products_for=web&per_page=12&include_events=1&include_coming_soon=1";
-const URL_FULLSHOWS = "https://api.vhx.com/v2/sites/156301/search_filters"
+const URL_FULLSHOWS = "https://api.vhx.com/v2/sites/156301/collections/1080914/items"
+const URL_CHANNELVIDEOS = "https://api.vhx.com/v2/sites/156301/collections/1021973/item"
 
 // Regex metadata
 const REGEX_DETAILS_URL = /^https:\/\/www\.trilogyplus\.com\/videos\/[^\/]+$/;
+const REGEX_CHANNEL_URL = /^https:\/\/www\.trilogyplus\.com\/[^\/]+$/;
+const REGEX_CHANNEL_ID = /"COLLECTION_ID":"?([^",]+)"?,"COLLECTION_TITLE"/;
 const REGEX_VIDEO_URL = /embed_url:\s*"([^"]*)"/;
 const REGEX_VIDEO_ID = /"video","VIDEO_ID":(\d+)/;
 const REGEX_VIDEO_DESCRIPTION = /<meta\s+name="description"\s+content="([^"]*)"/i;
 const REGEX_VIDEO_TITLE = /<meta\s+property="og:title"\s+content="([^"]*)"/i;
 
 const REGEX_BEARER_TOKEN = /window\.TOKEN\s*=\s*"([^"]+)";/m;
+
+const supportedResolutions = {
+	'1080p': { width: 1920, height: 1080 },
+	'720p': { width: 1280, height: 720 },
+	'480p': { width: 854, height: 480 },
+	'360p': { width: 640, height: 360 },
+	'240p': { width: 426, height: 240 },
+	'144p': { width: 256, height: 144 }
+};
+
 
 let config = {};
 
@@ -101,46 +114,117 @@ source.searchChannelContents = function (url, query, type, order, filters, conti
 }
 
 source.searchChannels = function (query, continuationToken) {
-    /**
-     * @param query: string
-     * @param continuationToken: any?
-     * @returns: ChannelPager
-     */
+    const showsResp = http.GET(URL_FULLSHOWS, {}, true);
+    
+    if (!showsResp.isOk) 
+        throw new ScriptException(`Failed to get channels, try relogging in [${showsResp.code}]`)
+
+    const results = JSON.parse(showsResp.body);
 
     const channels = []; // The results (PlatformChannel)
-    const hasMore = false; // Are there more pages?
+    
+    for (const channel of Object.values(results.items)) {
+        channels.push(new PlatformChannel({
+            id: new PlatformID(PLATFORM, channel.entity.id.toString(), config.id),
+            name: channel.entity.title,
+            thumbnail: channel.entity.thumbnails["1_1"].medium,
+            banner: channel.entity.thumbnails["16_6"]?.source,
+            subscribers: null,
+            description: channel.entity.description,
+            url: channel.entity.page_url,
+            links: {}
+        }));
+    }
+
+    const hasMore = false;
     const context = { query: query, continuationToken: continuationToken }; // Relevant data for the next page
     return new SomeChannelPager(channels, hasMore, context);
 }
 
 source.isChannelUrl = function(url) {
-    /**
-     * @param url: string
-     * @returns: boolean
-     */
-
 	return REGEX_CHANNEL_URL.test(url);
 }
 
 source.getChannel = function(url) {
+    const showResp = http.GET(url, {}, true);
+    
+    if (!showResp.isOk) 
+        throw new ScriptException(`Failed to get channel, try relogging in [${showResp.code}]`)
+
+    const channelID = extractDetail(showResp.body, REGEX_CHANNEL_ID);
+
+    const channelResp = http.GET(`https://api.vhx.com/v2/sites/156301/collections/${channelID}`, {}, true);
+    
+    if (!channelResp.isOk) 
+        throw new ScriptException(`Failed to retrieve channel details [${channelResp.code}]`)
+    
+    const channel = JSON.parse(channelResp.body);
+
 	return new PlatformChannel({
-		//... see source.js for more details
-	});
+        id: new PlatformID(PLATFORM, channel.id.toString(), config.id),
+        name: channel.title,
+        thumbnail: channel.thumbnails["1_1"].medium,
+        banner: channel.thumbnails["16_6"]?.source,
+        subscribers: null,
+        description: channel.description,
+        url: channel.page_url,
+        links: {}
+    })
 }
 
 source.getChannelContents = function(url, type, order, filters, continuationToken) {
-    /**
-     * @param url: string
-     * @param type: string
-     * @param order: string
-     * @param filters: Map<string, Array<string>>
-     * @param continuationToken: any?
-     * @returns: VideoPager
-     */
+    const channelResp = http.GET(url, {}, true);
+
+    if (!channelResp.isOk) 
+        throw new ScriptException(`Failed to retrieve channel page details [${channelResp.code}]`)
+
+    const collectionID = extractDetail(channelResp.body, REGEX_CHANNEL_ID)
+
+    const channelDetailsResp = http.GET(`https://api.vhx.com/v2/sites/156301/collections/${collectionID}`, {}, true);
+
+    if (!channelDetailsResp.isOk) 
+        throw new ScriptException(`Failed to retrieve channel details [${channelDetailsResp.code}]`)
+
+    const seasonsResp = http.GET(`https://api.vhx.com/v2/sites/156301/collections/${collectionID}/items`, {}, true);
+    
+    if (!seasonsResp.isOk) 
+        throw new ScriptException(`Failed to retrieve channel seasons details [${seasonsResp.code}]`)
+
+    const seasons = JSON.parse(seasonsResp.body).items.reverse() // Seasons, in reverse order from newest to oldest
 
     const videos = []; // The results (PlatformVideo)
+
+    for (const season of Object.values(seasons)) {
+        const seasonResp = http.GET(`https://api.vhx.com/v2/sites/156301/collections/${season.entity.id}/items`, {}, true);
+    
+        if (!seasonResp.isOk) 
+            throw new ScriptException(`Failed to retrieve channel season details [${seasonResp.code}]`)
+
+        const channelVideos = JSON.parse(seasonResp.body).items.reverse(); // Videos, in reverse order from newest to oldest
+        
+        for (const v of Object.values(channelVideos)) {
+            const video = v.entity;
+            videos.push(new PlatformVideo({
+                id: new PlatformID(PLATFORM, video.id.toString(), config.id),
+                name: video.title,
+				thumbnails: new Thumbnails([new Thumbnail(video.thumbnails["16_9"].large, 0)]),
+				author: new PlatformAuthorLink(
+					new PlatformID(PLATFORM, video.metadata.series.id, config.id),
+					video.metadata.series.name,
+					url,
+					JSON.parse(channelDetailsResp.body).thumbnails["1_1"].medium
+				),
+				datetime: Math.round((new Date(video.created_at)).getTime() / 1000),
+				duration: video.duration.seconds,
+				viewCount: null,
+				url: video.page_url,
+				isLive: video.live_video
+		    }));
+        }
+    }
+
     const hasMore = false; // Are there more pages?
-    const context = { url: url, query: query, type: type, order: order, filters: filters, continuationToken: continuationToken }; // Relevant data for the next page
+    const context = { url: url, query: null, type: type, order: order, filters: filters, continuationToken: continuationToken }; // Relevant data for the next page
     return new SomeChannelVideoPager(videos, hasMore, context);
 }
 
