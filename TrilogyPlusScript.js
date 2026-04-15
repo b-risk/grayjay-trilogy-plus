@@ -276,9 +276,9 @@ source.getContentDetails = function(url) {
         thumbnails: new Thumbnails([new Thumbnail(video.thumbnail.source, 0)]),
         author: new PlatformAuthorLink(
             new PlatformID(PLATFORM, String(video?.metadata.series_id), config.id),
-            video.metadata.series_name,
+            video?.metadata.series_name || "Trilogy Plus",
             channel?.page_url || PLATFORM,
-            channel?.thumbnails?["16_9"].large || ICON_TRILOGYPLUS
+            channel?.thumbnails?.["16_9"].large || ICON_TRILOGYPLUS
         ),
         url: url,
         uploadDate: Math.round((new Date(video.created_at)).getTime() / 1000),
@@ -325,23 +325,33 @@ function getHomeResults(page) {
 
     const results = JSON.parse(homeResp.body);
 
-    return results.items.map(item => new PlatformVideo({
-        id: new PlatformID(PLATFORM, String(item.entity.id), config.id),
-        name: item.entity.title,
-        thumbnails: new Thumbnails([new Thumbnail(item.entity.thumbnails["16_9"].large, 0)]),
-        author: new PlatformAuthorLink(
-            new PlatformID(PLATFORM, String(item.entity.id), config.id),
-            item.entity.metadata.series.name || "Trilogy Plus",
-            null,
-            ICON_TRILOGYPLUS
-        ),
-        datetime: parseInt((new Date(item.entity.created_at)).getTime() / 1000),
-        duration: item.entity.duration.seconds,
-        viewCount: null,
-        url: item.entity.page_url,
-        shareUrl: item.entity.page_url,
-        isLive: false
-    }));
+    const videos = []
+
+    for (const v of Object.values(results.items)) {
+        const video = v.entity
+
+        const channel = video.metadata.series.id !== null && getChannelDetails(video.metadata.series.id); 
+
+        videos.push(new PlatformVideo({
+            id: new PlatformID(PLATFORM, String(video.id), config.id),
+            name: video.title,
+            thumbnails: new Thumbnails([new Thumbnail(video.thumbnails["16_9"].large, 0)]),
+            author: new PlatformAuthorLink(
+                new PlatformID(PLATFORM, String(video.metadata.series.id), config.id),
+                video.metadata.series.name || "Trilogy Plus",
+                channel?.page_url || PLATFORM,
+                channel?.thumbnails?.["16_9"].large || ICON_TRILOGYPLUS
+            ),
+            datetime: parseInt((new Date(video.created_at)).getTime() / 1000),
+            duration: video.duration.seconds,
+            viewCount: null,
+            url: video.page_url,
+            shareUrl: video.page_url,
+            isLive: false
+        }))
+    }
+
+    return videos;
 }
 
 function getVideoDetails(id, bearer) {
