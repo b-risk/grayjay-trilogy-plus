@@ -179,7 +179,7 @@ source.getChannelContents = function(url, type, order, filters, continuationToke
 
     const channel = getChannelDetails(id)
 
-    const seasonsResp = http.GET(`${API_COLLECTIONS}${collectionID}/items`, {}, true);
+    const seasonsResp = http.GET(`${API_COLLECTIONS}${id}/items`, {}, true);
     
     if (!seasonsResp.isOk) 
         throw new ScriptException(`Failed to retrieve channel seasons details [${seasonsResp.code}]`)
@@ -240,7 +240,7 @@ source.getContentDetails = function(url) {
     
     const video = getVideoDetails(id, bearer);
 
-    const channel = getChannelDetails(video.metadata.series_id)
+    const channel = video.metadata.series_id !== undefined && getChannelDetails(video.metadata.series_id);   
 
     const sourceDetails = http.GET(
         `https://api.vhx.tv/videos/${id}/files`, 
@@ -273,7 +273,7 @@ source.getContentDetails = function(url) {
         name: video.name,
         thumbnails: new Thumbnails([new Thumbnail(video.thumbnail.source, 0)]),
         author: new PlatformAuthorLink(
-            new PlatformID(PLATFORM, String(video.metadata.series_id), config.id),
+            new PlatformID(PLATFORM, String(video?.metadata.series_id), config.id),
             video.metadata.series_name,
             channel?.page_url || PLATFORM,
             channel?.thumbnails["16_9"].large || ICON_TRILOGYPLUS
