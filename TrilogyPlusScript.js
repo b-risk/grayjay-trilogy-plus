@@ -153,7 +153,7 @@ source.getChannel = function(url) {
     if (!showResp.isOk) 
         throw new ScriptException(`Failed to get channel, try relogging in [${showResp.code}]`)
 
-    const channelID = extractDetail(showResp.body, REGEX_CHANNEL_ID);
+    const id = extractDetail(showResp.body, REGEX_CHANNEL_ID);
 
     const channel = getChannelDetails(id);
 
@@ -363,7 +363,7 @@ function getChannelDetails(id) {
     const channelDetailsResp = http.GET(API_COLLECTIONS + id, {}, true);
 
     if (!channelDetailsResp.isOk) 
-        throw new ScriptException(`Failed to retrieve channel details [${channelDetailsResp.code}]`)
+        throw new ScriptException(`Failed to retrieve details for channel (${id}) [${channelDetailsResp.code}]`)
 
     return JSON.parse(channelDetailsResp.body)
 }
