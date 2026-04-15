@@ -5,10 +5,12 @@ const URL_PLATFORM = "https://www.trilogyplus.com/";
 // Image used for channels (specific series images not yet supported)
 const ICON_TRILOGYPLUS = "https://dr56wvhu2c8zo.cloudfront.net/trilogyplus/assets/739ad5e0-ee07-4677-ac2b-c0c5ab40adb3.png";
 
+const API_COLLECTIONS = 'https://api.vhx.com/v2/sites/156301/collections/'
+
 // URLs handling different pages for content
-const URL_NEWRELEASES = "https://api.vhx.com/v2/sites/156301/collections/1491720/items?include_products_for=web&per_page=12&include_events=1&include_coming_soon=1";
-const URL_FULLSHOWS = "https://api.vhx.com/v2/sites/156301/collections/1080914/items"
-const URL_CHANNELVIDEOS = "https://api.vhx.com/v2/sites/156301/collections/1021973/item"
+const URL_NEWRELEASES = `${API_COLLECTIONS}1491720/items?include_products_for=web&per_page=12&include_events=1&include_coming_soon=1`;
+const URL_FULLSHOWS = `${API_COLLECTIONS}1080914/items`
+const URL_CHANNELVIDEOS = `${API_COLLECTIONS}1021973/item`
 
 // Regex metadata
 const REGEX_DETAILS_URL = /^https:\/\/www\.trilogyplus\.com\/videos\/[^\/]+$/;
@@ -153,15 +155,10 @@ source.getChannel = function(url) {
 
     const channelID = extractDetail(showResp.body, REGEX_CHANNEL_ID);
 
-    const channelResp = http.GET(`https://api.vhx.com/v2/sites/156301/collections/${channelID}`, {}, true);
-    
-    if (!channelResp.isOk) 
-        throw new ScriptException(`Failed to retrieve channel details [${channelResp.code}]`)
-    
-    const channel = JSON.parse(channelResp.body);
+    const channel = getChannelDetails(id);
 
 	return new PlatformChannel({
-        id: new PlatformID(PLATFORM, channel.id.toString(), config.id),
+        id: new PlatformID(PLATFORM, String(channel.id), config.id),
         name: channel.title,
         thumbnail: channel.thumbnails["1_1"].medium,
         banner: channel.thumbnails["16_6"]?.source,
@@ -178,14 +175,11 @@ source.getChannelContents = function(url, type, order, filters, continuationToke
     if (!channelResp.isOk) 
         throw new ScriptException(`Failed to retrieve channel page details [${channelResp.code}]`)
 
-    const collectionID = extractDetail(channelResp.body, REGEX_CHANNEL_ID)
+    const id = extractDetail(channelResp.body, REGEX_CHANNEL_ID)
 
-    const channelDetailsResp = http.GET(`https://api.vhx.com/v2/sites/156301/collections/${collectionID}`, {}, true);
+    const channel = getChannelDetails(id)
 
-    if (!channelDetailsResp.isOk) 
-        throw new ScriptException(`Failed to retrieve channel details [${channelDetailsResp.code}]`)
-
-    const seasonsResp = http.GET(`https://api.vhx.com/v2/sites/156301/collections/${collectionID}/items`, {}, true);
+    const seasonsResp = http.GET(`${API_COLLECTIONS}${collectionID}/items`, {}, true);
     
     if (!seasonsResp.isOk) 
         throw new ScriptException(`Failed to retrieve channel seasons details [${seasonsResp.code}]`)
@@ -195,7 +189,7 @@ source.getChannelContents = function(url, type, order, filters, continuationToke
     const videos = []; // The results (PlatformVideo)
 
     for (const season of Object.values(seasons)) {
-        const seasonResp = http.GET(`https://api.vhx.com/v2/sites/156301/collections/${season.entity.id}/items`, {}, true);
+        const seasonResp = http.GET(`${API_COLLECTIONS}${season.entity.id}/items`, {}, true);
     
         if (!seasonResp.isOk) 
             throw new ScriptException(`Failed to retrieve channel season details [${seasonResp.code}]`)
@@ -205,14 +199,14 @@ source.getChannelContents = function(url, type, order, filters, continuationToke
         for (const v of Object.values(channelVideos)) {
             const video = v.entity;
             videos.push(new PlatformVideo({
-                id: new PlatformID(PLATFORM, video.id.toString(), config.id),
+                id: new PlatformID(PLATFORM, String(video.id), config.id),
                 name: video.title,
 				thumbnails: new Thumbnails([new Thumbnail(video.thumbnails["16_9"].large, 0)]),
 				author: new PlatformAuthorLink(
 					new PlatformID(PLATFORM, video.metadata.series.id, config.id),
 					video.metadata.series.name,
 					url,
-					JSON.parse(channelDetailsResp.body).thumbnails["1_1"].medium
+					channel.thumbnails["1_1"].medium
 				),
 				datetime: Math.round((new Date(video.created_at)).getTime() / 1000),
 				duration: video.duration.seconds,
@@ -238,16 +232,18 @@ source.getContentDetails = function(url) {
     if (!videoResp.isOk) 
         throw new ScriptException(`Failed to retrieve video details [${videoResp.code}]`)
     
-    const videoID = extractDetail(videoResp.body, REGEX_VIDEO_ID);
+    const id = extractDetail(videoResp.body, REGEX_VIDEO_ID);
     const bearer = extractDetail(videoResp.body, REGEX_BEARER_TOKEN);
-    const description = extractDetail(videoResp.body, REGEX_VIDEO_DESCRIPTION);
-    const title = extractDetail(videoResp.body, REGEX_VIDEO_TITLE);
     
-    if (!videoID || !bearer || !description || !title) 
+    if (!id || !bearer) 
         throw new ScriptException(`Failed to fetch video details, Trilogy Plus likely changed their site.`)
     
-    const videoDetails = http.GET(
-        `https://api.vhx.tv/videos/${videoID}/files`, 
+    const video = getVideoDetails(id, bearer);
+
+    const channel = getChannelDetails(video.metadata.series_id)
+
+    const sourceDetails = http.GET(
+        `https://api.vhx.tv/videos/${id}/files`, 
         { 
             Authorization: `Bearer ${bearer}`,
             Accept: 'application/json',
@@ -256,13 +252,13 @@ source.getContentDetails = function(url) {
         true
     );
 
-    if (!videoDetails.isOk)
-        throw new ScriptException(`Failed to retrieve video [${embedResp.code}]`);
+    if (!sourceDetails.isOk)
+        throw new ScriptException(`Failed to retrieve video details [${sourceDetails.code}]`);
 
     let sources = [];
 
     // Loop through video sources
-    for (const source of Object.values(JSON.parse(videoDetails.body))) {
+    for (const source of Object.values(JSON.parse(sourceDetails.body))) {
         if (source.method == "hls") {
             sources.push(new HLSSource({
                 name: source.codec,
@@ -273,24 +269,23 @@ source.getContentDetails = function(url) {
     }
     
     return new PlatformVideoDetails({
-        id: new PlatformID(PLATFORM, String(videoID), config.id),
-        name: title,
-        thumbnails: new Thumbnails([]),
+        id: new PlatformID(PLATFORM, String(id), config.id),
+        name: video.name,
+        thumbnails: new Thumbnails([new Thumbnail(video.thumbnail.source, 0)]),
         author: new PlatformAuthorLink(
-            new PlatformID(PLATFORM, String(videoID), config.id),
-            "Trilogy Plus",
-            "https://trilogyplus.com/channel/placeholder",
-            ICON_TRILOGYPLUS
+            new PlatformID(PLATFORM, String(video.metadata.series_id), config.id),
+            video.metadata.series_name,
+            channel?.page_url || PLATFORM,
+            channel?.thumbnails["16_9"].large || ICON_TRILOGYPLUS
         ),
         url: url,
-        uploadDate: 1696880568,
-        duration: 5000,
+        uploadDate: Math.round((new Date(video.created_at)).getTime() / 1000),
+        duration: video.duration.seconds,
         viewCount: null,
-        description: description,
-        isLive: false,
+        description: video.description,
+        isLive: video.live_video,
         video: new VideoSourceDescriptor(sources)
     });
-
 }
 
 
@@ -345,6 +340,32 @@ function getHomeResults(page) {
         shareUrl: item.entity.page_url,
         isLive: false
     }));
+}
+
+function getVideoDetails(id, bearer) {
+    const videoResp = http.GET(
+        `https://api.vhx.tv/videos/${id}`, 
+        { 
+            Authorization: `Bearer ${bearer}`,
+            Accept: 'application/json',
+            Referer: URL_PLATFORM 
+        }, 
+        true
+    );
+
+    if (!videoResp.isOk)
+        throw new ScriptException(`Failed to retrieve video details [${videoResp.code}]`);
+
+    return JSON.parse(videoResp.body)
+}
+
+function getChannelDetails(id) {
+    const channelDetailsResp = http.GET(API_COLLECTIONS + id, {}, true);
+
+    if (!channelDetailsResp.isOk) 
+        throw new ScriptException(`Failed to retrieve channel details [${channelDetailsResp.code}]`)
+
+    return JSON.parse(channelDetailsResp.body)
 }
 
 // Extract detail using regex

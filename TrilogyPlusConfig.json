@@ -22,6 +22,7 @@
     ".vhx.tv",
     ".vimeo.com",
     ".vimeocdn.com",
+    ".imgix.net",
     ".cloudfront.net"
   ],
   "authentication": {

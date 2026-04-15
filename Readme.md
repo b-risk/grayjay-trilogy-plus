@@ -4,7 +4,7 @@ It treats every show as it's own channel
 
 ### Installation
 You can install the plugin by scanning this QR code:
-![QR Code](http://url/to/img.png)
+![QR Code](https://raw.githubusercontent.com/b-risk/grayjay-trilogy-plus/refs/heads/main/qr-code.png)
 
 Alternatively, you can add it manually by using this link:
 ```
@@ -12,9 +12,9 @@ grayjay://plugin/https://raw.githubusercontent.com/b-risk/grayjay-trilogy-plus/r
 ```
 
 ### TODO
-- [ ] Channel (shows) support
-- [ ] Channel search
 - [ ] Support for alternative home pages (Popular, my list, etc)
+- [ ] Platform comments
+
 
 ### Contributions
 Contributions are welcome, feel free to submit pull requests if you think you can improve something or fix a bug.
