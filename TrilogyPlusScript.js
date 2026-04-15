@@ -153,7 +153,8 @@ source.getChannel = function(url) {
     if (!showResp.isOk) 
         throw new ScriptException(`Failed to get channel, try relogging in [${showResp.code}]`)
 
-    const id = extractDetail(showResp.body, REGEX_CHANNEL_ID);
+    if (url !== PLATFORM) {
+        const id = extractDetail(showResp.body, REGEX_CHANNEL_ID);
 
     const channel = getChannelDetails(id);
 
@@ -167,6 +168,7 @@ source.getChannel = function(url) {
         url: channel.page_url,
         links: {}
     })
+    }
 }
 
 source.getChannelContents = function(url, type, order, filters, continuationToken) {
@@ -177,7 +179,7 @@ source.getChannelContents = function(url, type, order, filters, continuationToke
 
     const id = extractDetail(channelResp.body, REGEX_CHANNEL_ID)
 
-    const channel = getChannelDetails(id)
+    const channel = id !== undefined && getChannelDetails(id);  
 
     const seasonsResp = http.GET(`${API_COLLECTIONS}${id}/items`, {}, true);
     
@@ -276,7 +278,7 @@ source.getContentDetails = function(url) {
             new PlatformID(PLATFORM, String(video?.metadata.series_id), config.id),
             video.metadata.series_name,
             channel?.page_url || PLATFORM,
-            channel?.thumbnails["16_9"].large || ICON_TRILOGYPLUS
+            channel?.thumbnails?["16_9"].large || ICON_TRILOGYPLUS
         ),
         url: url,
         uploadDate: Math.round((new Date(video.created_at)).getTime() / 1000),
