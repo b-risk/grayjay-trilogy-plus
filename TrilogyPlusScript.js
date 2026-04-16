@@ -1,16 +1,17 @@
 // Platform information
-const PLATFORM = "Trilogy Plus"
-const URL_PLATFORM = "https://www.trilogyplus.com/";
+const PLATFORM = 'Trilogy Plus'
+const URL_PLATFORM = 'https://www.trilogyplus.com/';
 
 // Image used for channels (specific series images not yet supported)
 const ICON_TRILOGYPLUS = "https://dr56wvhu2c8zo.cloudfront.net/trilogyplus/assets/739ad5e0-ee07-4677-ac2b-c0c5ab40adb3.png";
 
-const API_COLLECTIONS = 'https://api.vhx.com/v2/sites/156301/collections/'
+const API_BASE = 'https://api.vhx.com/v2/sites/156301/'
+const API_COLLECTIONS = API_BASE + 'collections/'
 
 // URLs handling different pages for content
-const URL_NEWRELEASES = `${API_COLLECTIONS}1491720/items?include_products_for=web&per_page=12&include_events=1&include_coming_soon=1`;
-const URL_FULLSHOWS = `${API_COLLECTIONS}1080914/items`
-const URL_CHANNELVIDEOS = `${API_COLLECTIONS}1021973/item`
+const URL_NEWRELEASES = API_COLLECTIONS + '1491720/items?include_products_for=web&per_page=12&include_events=1&include_coming_soon=1';
+const URL_FULLSHOWS = API_COLLECTIONS + '1080914/items'
+const URL_CHANNELVIDEOS = API_COLLECTIONS + '1021973/item'
 
 // Regex metadata
 const REGEX_DETAILS_URL = /^https:\/\/www\.trilogyplus\.com\/videos\/[^\/]+$/;
@@ -18,8 +19,8 @@ const REGEX_CHANNEL_URL = /^https:\/\/www\.trilogyplus\.com\/[^\/]+$/;
 const REGEX_CHANNEL_ID = /"COLLECTION_ID":"?([^",]+)"?,"COLLECTION_TITLE"/;
 const REGEX_VIDEO_URL = /embed_url:\s*"([^"]*)"/;
 const REGEX_VIDEO_ID = /"video","VIDEO_ID":(\d+)/;
-const REGEX_VIDEO_DESCRIPTION = /<meta\s+name="description"\s+content="([^"]*)"/i;
-const REGEX_VIDEO_TITLE = /<meta\s+property="og:title"\s+content="([^"]*)"/i;
+const REGEX_VIDEO_DESCRIPTION = /<meta\s+name="description"\s+content="([^"]*)"/i; // Unused
+const REGEX_VIDEO_TITLE = /<meta\s+property="og:title"\s+content="([^"]*)"/i; // Unused
 
 const REGEX_BEARER_TOKEN = /window\.TOKEN\s*=\s*"([^"]+)";/m;
 
@@ -83,7 +84,37 @@ source.search = function (query, type, order, filters, continuationToken) {
      * @param continuationToken: any?
      * @returns: VideoPager
      */
+    const searchResp = http.GET(`${API_BASE}search?q=${query}&type=video%2Ccollection%2Clive_event%2Cproduct&page=1`, {}, true)
+    
     const videos = []; // The results (PlatformVideo)
+    
+    if (!searchResp.isOk)
+        throw new ScriptException(`Failed to get videos, try relogging in [${searchResp.code}]`)
+
+    if (Object.keys(JSON.parse(searchResp.body).results).length > 0) {
+        for (const v of Object.values(JSON.parse(searchResp.body).results)) {
+            const video = v.entity;
+            const seriesId = video.metadata?.series?.id;
+            const channel = seriesId ? getChannelDetails(seriesId) : null; 
+            videos.push(new PlatformVideo({
+                id: new PlatformID(PLATFORM, String(video.id), config.id),
+                name: video.title,
+				thumbnails: new Thumbnails([new Thumbnail(video.thumbnails["16_9"].large, 0)]),
+				author: new PlatformAuthorLink(
+					new PlatformID(PLATFORM, seriesId, config.id),
+					video.metadata?.series?.name || PLATFORM,
+					channel?.page_url || URL_PLATFORM,
+					channel?.thumbnails?.["1_1"].medium || ICON_TRILOGYPLUS
+				),
+				datetime: Math.round((new Date(video.created_at)).getTime() / 1000),
+				duration: video.duration?.seconds,
+				viewCount: null,
+				url: video.page_url,
+				isLive: video.live_video
+		    }))
+        }
+    }
+
     const hasMore = false; // Are there more pages?
     const context = { query: query, type: type, order: order, filters: filters, continuationToken: continuationToken }; // Relevant data for the next page
     return new SomeSearchVideoPager(videos, hasMore, context);
@@ -155,20 +186,20 @@ source.getChannel = function(url) {
 
     if (url !== PLATFORM) {
         const id = extractDetail(showResp.body, REGEX_CHANNEL_ID);
+    }
 
     const channel = getChannelDetails(id);
 
 	return new PlatformChannel({
         id: new PlatformID(PLATFORM, String(channel.id), config.id),
         name: channel.title,
-        thumbnail: channel.thumbnails["1_1"].medium,
+        thumbnail: channel.thumbnails["1_1"]?.medium,
         banner: channel.thumbnails["16_6"]?.source,
         subscribers: null,
         description: channel.description,
         url: channel.page_url,
         links: {}
     })
-    }
 }
 
 source.getChannelContents = function(url, type, order, filters, continuationToken) {
@@ -417,6 +448,16 @@ class HomePager extends VideoPager {
 }
 
 class SearchVideoPager extends VideoPager {
+	constructor(results, hasMore, context) {
+		super(results, hasMore, context);
+	}
+	
+	nextPage() {
+		return source.search(this.context.query, this.context.type, this.context.order, this.context.filters, this.context.continuationToken);
+	}
+}
+
+class SomeSearchVideoPager extends VideoPager {
 	constructor(results, hasMore, context) {
 		super(results, hasMore, context);
 	}
