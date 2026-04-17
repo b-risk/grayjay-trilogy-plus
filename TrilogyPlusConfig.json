@@ -11,7 +11,7 @@
   "iconUrl": "./TrilogyPlusIcon.png",
   "id": "ca4747c0-7fff-4909-a448-545f54e7f8ee",
   "scriptSignature": "aTbFPFuTzQ8Nx/A8886AZDaHoyyGnQegjBSSrEomW3UTnQr7kpfQMD4BfED2jY4gMEsTWhyXCUCfmeD32GoZSbq6F+x6TjGP/k5RH79XpWINllGceSCL+lsmeZr22aTuMsgPEPjX7IrOQn/xIEF//d8waNmMQAFbSm6UtTL2lnuyOk1+do1bDhhA5sINp89IlCUIuRcKS7P9C63Nx98LzjEgaPZDWSBCjMVsPVCwGTnCc8egKIsHAW3fzDBMKEqCeV/XRw0cXqFyVBMuyyFW/puBXkCEWNE9VSjbZJlRcejMLMyzE8NDJ6KLhhssDVacZxrNYjNP/ZAKOsnFH3BXOw==",
-  "scriptPublicKey": "iwIDAQABK1aeeQC8YTmYdbGzDbxA60oJd9GTthUruSVqlES5W6F0qv0r2vJksMIEvW8DETBYgQm1",
+  "scriptPublicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApo+48UtPvW8DETBYgQm1\rIsSbT/hW26uuKw0wr2nWE8C4vpIEzapXpgwjswW3QFXbyv4EtAh6q7MolV3wy9OB\rPMx4+VNes/Z/mtLkO5jOlAZev1slBejIO3dW8+QlldFbJgnHp5cs+VQndxDHK4m1\rM+rEJcGaZw6wPH2lifGMFYkD75cVsDznXYQ2cZD9ClheJYa/7Kod276EUsvbbahr\rGqjiGRRLUdpyQC6/XZ6wu7ZYtqcPJ6ATbdRmey9vjrvayN3fJjRmZBq+EBslGlnv\rrOeYHINwK1aeeQC8YTmYdbGzDbxA60oJd9GTthUruSVqlES5W6F0qv0r2vJksMIE\riwIDAQAB\r",
   "packages": [
     "Http",
     "Utilities",
