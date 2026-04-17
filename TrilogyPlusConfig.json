@@ -10,11 +10,12 @@
   "version": 1,
   "iconUrl": "./TrilogyPlusIcon.png",
   "id": "ca4747c0-7fff-4909-a448-545f54e7f8ee",
-  "scriptSignature": "TuptZfQc1BN+ZxkKb7hLbRiCKPYJ48nWh8dp21IGdZw4qKUm5dwyCTyRy7A9D14Ns57OQ99ljaajQ1w+I/xZf+gHvcOOSTFGAslKoVplQUV4jz521GZtM//tDldl8DS+bPDHS48SDKv5+kkLSC26PGirJY59Tx7m+1Q2Pnid0U1MB7nGuFYjwD53LlXsSsIrDjPGzEtJd/KMznd0KgBLPBLgRAmxO6ox57R01egJivCSzslXVf64itijyVo/q2GBithZ3DvxtF+tClCUvjfJCyXmgn+PFvE4Hbt4xFdnoAHM3oDZ4jNhXgigLJQgnNWxHPWU5R6Onw8YN+wHJFTR0WPN28iT/pjaY8fanypDWU7kD7SH0t815fPbzRq7Lmoyj+GVnZ/F6ieSPB7CQd4hGex+qo0Yayjy7GQh+fv6SduDX7VJp7h+pGyzyMzaU4W74JZJKlu7EiykvJrFR5Jxirzjoyo/jivU6ASo2emJ/IPnY72U0MQhbyKv9HDM1r6oXa2KkRtSRcXvxZfILP81pHjMW8iWzV+CSR9RotUVKnVZkMtNTuI2htSapUD2jA7XGKJROyhdlUEKWpQa2AZoI3jnYIuBfaXXrHAd3JPiAOpexgF9orgvzudUvLQ8mwSuupa/cTwDyP6j3KyK/cj5/aX1q6SjaFdD/hdvjW8YdDs=",
-	"scriptPublicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAiCwzH2YDWMPT4pzqk/827tVGMSwNxMfUvq1zTwbyCVDKX18OM9TxYmPgVYJu1J9C7uFoyvFyu7J0JDpJbKcwjBhyanNlZJBsG8rPNaaYzTNM1/+/AuOF7zEQDiSOiq9yYantiFjUulUEuTnDroML+nfgc+jZ8rcmUUENGiBV9zC09u0yX5nXoITydRqIVUVyBFcNjcLqUgk1l6W+IMPY9ZUgS6xCzx1iFI2jUBa/LHBYI1fXC/Jhutu6XDb3Dsyxng85w7e441nEz6fY56BAy9+AeSGAl+uLJ9+VjtMlHBGf/YBbAdPHKFTIUTPCNmTyI7W1xMx3Va8ozvhpJFZqWQIDAQAB",
+  "scriptSignature": "aTbFPFuTzQ8Nx/A8886AZDaHoyyGnQegjBSSrEomW3UTnQr7kpfQMD4BfED2jY4gMEsTWhyXCUCfmeD32GoZSbq6F+x6TjGP/k5RH79XpWINllGceSCL+lsmeZr22aTuMsgPEPjX7IrOQn/xIEF//d8waNmMQAFbSm6UtTL2lnuyOk1+do1bDhhA5sINp89IlCUIuRcKS7P9C63Nx98LzjEgaPZDWSBCjMVsPVCwGTnCc8egKIsHAW3fzDBMKEqCeV/XRw0cXqFyVBMuyyFW/puBXkCEWNE9VSjbZJlRcejMLMyzE8NDJ6KLhhssDVacZxrNYjNP/ZAKOsnFH3BXOw==",
+  "scriptPublicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApo+48UtPvW8DETBYgQm1\rIsSbT/hW26uuKw0wr2nWE8C4vpIEzapXpgwjswW3QFXbyv4EtAh6q7MolV3wy9OB\rPMx4+VNes/Z/mtLkO5jOlAZev1slBejIO3dW8+QlldFbJgnHp5cs+VQndxDHK4m1\rM+rEJcGaZw6wPH2lifGMFYkD75cVsDznXYQ2cZD9ClheJYa/7Kod276EUsvbbahr\rGqjiGRRLUdpyQC6/XZ6wu7ZYtqcPJ6ATbdRmey9vjrvayN3fJjRmZBq+EBslGlnv\rrOeYHINwK1aeeQC8YTmYdbGzDbxA60oJd9GTthUruSVqlES5W6F0qv0r2vJksMIE\riwIDAQAB\r",
   "packages": [
     "Http",
-    "Utilities"
+    "Utilities",
+    "DOMParser"
   ],
   "allowEval": false,
   "allowAllHttpHeaderAccess": false,
@@ -29,8 +30,12 @@
   ],
   "authentication": {
     "loginUrl": "https://www.trilogyplus.com/login",
-    "cookiesToFind": [ "_session" ],
-    "headersToFind": [ "Authorization" ],
+    "cookiesToFind": [
+      "_session"
+    ],
+    "headersToFind": [
+      "Authorization"
+    ],
     "userAgent": "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.230 Mobile Safari/537.36"
   }
 }

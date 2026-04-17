@@ -19,7 +19,7 @@ const REGEX_CHANNEL_URL = /^https:\/\/www\.trilogyplus\.com\/[^\/]+$/;
 const REGEX_CHANNEL_ID = /"COLLECTION_ID":"?([^",]+)"?,"COLLECTION_TITLE"/;
 const REGEX_VIDEO_URL = /embed_url:\s*"([^"]*)"/;
 const REGEX_VIDEO_ID = /"video","VIDEO_ID":(\d+)/;
-const REGEX_VIDEO_DESCRIPTION = /<meta\s+name="description"\s+content="([^"]*)"/i; // Unused
+const REGEX_VIDEO_COMMENTS_ID = /window\.COMMENTABLE_ID\s*=\s*(\w+)/i;
 const REGEX_VIDEO_TITLE = /<meta\s+property="og:title"\s+content="([^"]*)"/i; // Unused
 
 const REGEX_BEARER_TOKEN = /window\.TOKEN\s*=\s*"([^"]+)";/m;
@@ -184,11 +184,12 @@ source.getChannel = function(url) {
     if (!showResp.isOk) 
         throw new ScriptException(`Failed to get channel, try relogging in [${showResp.code}]`)
 
+    let channel = null;
+    
     if (url !== PLATFORM) {
         const id = extractDetail(showResp.body, REGEX_CHANNEL_ID);
+        channel = getChannelDetails(id);
     }
-
-    const channel = getChannelDetails(id);
 
 	return new PlatformChannel({
         id: new PlatformID(PLATFORM, String(channel.id), config.id),
@@ -323,12 +324,30 @@ source.getContentDetails = function(url) {
 
 
 source.getComments = function (url, continuationToken) {
-    /**
-     * @param url: string
-     * @param continuationToken: any?
-     * @returns: CommentPager
-     */
+    // const videoResp = http.GET(url, {}, true);
+    
+    // if (!videoResp.isOk) 
+    //     throw new ScriptException(`Failed to retrieve video details [${videoResp.code}]`)
 
+    // const id = extractDetail(videoResp.body, REGEX_VIDEO_COMMENTS_ID)
+
+    // const commentsResp = http.GET(`${URL_PLATFORM}comments?commentable_type=Video&commentable_id=${id}&sort=desc&sort_by=created_at`, 
+    //     {
+    //         Accept: 'application/json',
+    //         Referer: URL_PLATFORM 
+    //     },
+    //     true
+    // )
+    
+    // if (!commentsResp.isOk) 
+    //     throw new ScriptException(`Failed to retrieve comments [${commentsResp.code}]`)
+
+    // const results = domParser.parseFromString(
+    //     JSON.parse(commentsResp.body).partial,
+    //     'text/html'
+    // );   
+
+    // throw new ScriptException(results) // Returns null
     const comments = []; // The results (Comment)
     const hasMore = false; // Are there more pages?
     const context = { url: url, continuationToken: continuationToken }; // Relevant data for the next page
@@ -406,7 +425,7 @@ function getChannelDetails(id) {
     const channelDetailsResp = http.GET(API_COLLECTIONS + id, {}, true);
 
     if (!channelDetailsResp.isOk) 
-        throw new ScriptException(`Failed to retrieve details for channel (${id}) [${channelDetailsResp.code}]`)
+        throw new ScriptException(`Failed to retrieve details for channel (${API_COLLECTIONS + id}) [${channelDetailsResp.code}]`)
 
     return JSON.parse(channelDetailsResp.body)
 }
