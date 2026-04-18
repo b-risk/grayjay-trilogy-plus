@@ -31,3 +31,15 @@ Contributions are welcome, feel free to submit pull requests if you think you ca
 
 ### Credits
 Special thanks to Stefan Cruz for his help with the development of the plugin.
+
+### Signing
+```bash
+# Generate keypair
+ssh-keygen -t rsa -b 2048 -m PEM -f ./private-key.pem
+
+# Encode it in Base64 and set the environment variable
+export SIGNING_PRIVATE_KEY="$(base64 -w 0 ./private-key.pem)"
+
+# Run the sign script:
+sh ./sign-script.sh "{SCRIPT_FILE_PATH}" "{CONFIG_FILE_PATH}"
+```
