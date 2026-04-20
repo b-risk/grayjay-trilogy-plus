@@ -41,7 +41,7 @@ source.enable = function (conf) {
 }
 
 source.getHome = function() {
-    return new HomePager(getHomeResults(0), true);
+    return new HomePager(getHomeResults(0, false), true);
 }
 
 source.searchSuggestions = function(query) {
@@ -146,7 +146,7 @@ source.searchChannelContents = function (url, query, type, order, filters, conti
     return new SomeSearchChannelVideoPager(videos, hasMore, context);
 }
 
-source.searchChannels = function (query, continuationToken) {
+source.searchChannels = function (query, continuationToken) { // Needs to be improvd, currently returns all channels on the platform even if not relevent
     const showsResp = http.GET(URL_FULLSHOWS, {}, true);
     
     if (!showsResp.isOk) 
@@ -155,6 +155,17 @@ source.searchChannels = function (query, continuationToken) {
     const results = JSON.parse(showsResp.body);
 
     const channels = []; // The results (PlatformChannel)
+
+    channels.push(new PlatformChannel({ // Add uncategorized channel "Trilogy Plus"
+            id: new PlatformID(PLATFORM, null, config.id),
+            name: PLATFORM,
+            thumbnail: ICON_TRILOGYPLUS,
+            banner: ICON_TRILOGYPLUS,
+            subscribers: null,
+            description: "Trilogy Plus is an immersive streaming service with the best entertainment in scambaiting, scam-busting, travel and true crime.",
+            url: URL_PLATFORM,
+            links: {}
+        }));
     
     for (const channel of Object.values(results.items)) {
         channels.push(new PlatformChannel({
@@ -175,6 +186,10 @@ source.searchChannels = function (query, continuationToken) {
 }
 
 source.isChannelUrl = function(url) {
+    if (url == URL_PLATFORM) {
+        return true;
+    }
+
 	return REGEX_CHANNEL_URL.test(url);
 }
 
@@ -186,19 +201,19 @@ source.getChannel = function(url) {
 
     let channel = null;
     
-    if (url !== PLATFORM) {
+    if (url !== URL_PLATFORM) {
         const id = extractDetail(showResp.body, REGEX_CHANNEL_ID);
         channel = getChannelDetails(id);
     }
 
 	return new PlatformChannel({
-        id: new PlatformID(PLATFORM, String(channel.id), config.id),
-        name: channel.title,
-        thumbnail: channel.thumbnails["1_1"]?.medium,
-        banner: channel.thumbnails["16_6"]?.source,
+        id: new PlatformID(PLATFORM, String(channel?.id), config.id),
+        name: channel?.title || PLATFORM,
+        thumbnail: channel?.thumbnails["1_1"]?.medium || ICON_TRILOGYPLUS,
+        banner: channel?.thumbnails["16_6"]?.source || ICON_TRILOGYPLUS,
         subscribers: null,
-        description: channel.description,
-        url: channel.page_url,
+        description: channel?.description || "Trilogy Plus is an immersive streaming service with the best entertainment in scambaiting, scam-busting, travel and true crime.",
+        url: channel?.page_url || URL_PLATFORM,
         links: {}
     })
 }
@@ -211,7 +226,17 @@ source.getChannelContents = function(url, type, order, filters, continuationToke
 
     const id = extractDetail(channelResp.body, REGEX_CHANNEL_ID)
 
-    const channel = id !== undefined && getChannelDetails(id);  
+    const channel = id && getChannelDetails(id);  
+
+    let videos = []; // The results (PlatformVideo)
+    const hasMore = false; // Are there more pages?
+    const context = { url: url, query: null, type: type, order: order, filters: filters, continuationToken: continuationToken }; // Relevant data for the next page
+
+    if (url == URL_PLATFORM ) { // Check if channel is uncategorized (not part of any series,) then return the uncategorized videos
+        videos = getHomeResults(0, true);
+        log(JSON.stringify(videos));
+        return new SomeChannelVideoPager(videos, hasMore, context);
+    };
 
     const seasonsResp = http.GET(`${API_COLLECTIONS}${id}/items`, {}, true);
     
@@ -219,8 +244,6 @@ source.getChannelContents = function(url, type, order, filters, continuationToke
         throw new ScriptException(`Failed to retrieve channel seasons details [${seasonsResp.code}]`)
 
     const seasons = JSON.parse(seasonsResp.body).items.reverse() // Seasons, in reverse order from newest to oldest
-
-    const videos = []; // The results (PlatformVideo)
 
     for (const season of Object.values(seasons)) {
         const seasonResp = http.GET(`${API_COLLECTIONS}${season.entity.id}/items`, {}, true);
@@ -251,8 +274,6 @@ source.getChannelContents = function(url, type, order, filters, continuationToke
         }
     }
 
-    const hasMore = false; // Are there more pages?
-    const context = { url: url, query: null, type: type, order: order, filters: filters, continuationToken: continuationToken }; // Relevant data for the next page
     return new SomeChannelVideoPager(videos, hasMore, context);
 }
 
@@ -309,7 +330,7 @@ source.getContentDetails = function(url) {
         author: new PlatformAuthorLink(
             new PlatformID(PLATFORM, String(video?.metadata.series_id), config.id),
             video?.metadata.series_name || "Trilogy Plus",
-            channel?.page_url || PLATFORM,
+            channel?.page_url || URL_PLATFORM,
             channel?.thumbnails?.["16_9"].large || ICON_TRILOGYPLUS
         ),
         url: url,
@@ -367,11 +388,11 @@ source.getSubComments = function (comment) {
 	return getCommentsPager(comment.context.claimId, comment.context.claimId, 1, false, comment.context.commentId);
 }
 
-function getHomeResults(page) {
+function getHomeResults(page, excludeCategorized) {
     const homeResp = http.GET(URL_NEWRELEASES, {}, true);
     
     if (!homeResp.isOk) 
-        throw new ScriptException(`Failed to get home, try relogging in [${homeResp.code}]`)
+        throw new ScriptException(`Failed to get videos in feed, try relogging in [${homeResp.code}]`)
 
     const results = JSON.parse(homeResp.body);
 
@@ -381,6 +402,10 @@ function getHomeResults(page) {
         const video = v.entity
 
         const channel = video.metadata.series.id !== null && getChannelDetails(video.metadata.series.id); 
+        
+        if (excludeCategorized && channel) { // Check if to exclude categorized (series) videos
+            continue;
+        }
 
         videos.push(new PlatformVideo({
             id: new PlatformID(PLATFORM, String(video.id), config.id),
@@ -389,7 +414,7 @@ function getHomeResults(page) {
             author: new PlatformAuthorLink(
                 new PlatformID(PLATFORM, String(video.metadata.series.id), config.id),
                 video.metadata.series.name || "Trilogy Plus",
-                channel?.page_url || PLATFORM,
+                channel?.page_url || URL_PLATFORM,
                 channel?.thumbnails?.["16_9"].large || ICON_TRILOGYPLUS
             ),
             datetime: parseInt((new Date(video.created_at)).getTime() / 1000),
@@ -398,8 +423,8 @@ function getHomeResults(page) {
             url: video.page_url,
             shareUrl: video.page_url,
             isLive: false
-        }))
-    }
+        }));
+    };
 
     return videos;
 }
@@ -435,7 +460,7 @@ function extractDetail(html, regex) {
     const match = html.match(regex);
 
     if (match) {
-        return match[1]
+        return match[1];
     } else {
         return null;
     }
@@ -460,7 +485,7 @@ class HomePager extends VideoPager {
 	
 	nextPage() {
         this.page++;
-        this.results = getHomeResults(this.page);
+        this.results = getHomeResults(this.page, false);
         this.hasMore = true;
 		return this;
 	}

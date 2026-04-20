@@ -1,6 +1,6 @@
 ## Notice
 
-> The plugin treats every show as it's own channel, but currently you are not able to follow videos that aren't from a series (you can still watch them and get them in your home feed) because the site does not give a backend for listing uncategorized videos, I'm not sure how to approach listing these so you are able to follow them, the only workaround is enabling email notifications for new uploads in these cases. If anyone has suggestions or workarounds feel free to leave them.
+> The plugin treats every show as it's own channel, but there are some uncategorized videos on the platform and they don't provide a good endpoint to search for them, so the uncategorized videos are put under a channel called "Trilogy Plus" and it grabs a few of the most recent uncategorized releases so you can still follow it.
 
 ### Grayjay Trilogy Plus
 This plugin adds support for the streaming service Trilogy Plus, allowing you to use it in Grayjay.
@@ -15,15 +15,16 @@ grayjay://plugin/https://raw.githubusercontent.com/b-risk/grayjay-trilogy-plus/r
 ```
 
 ### TODO
+- [ ] Sign plugin
 - [x] Homepage results
 - [x] Video playback & metadata
 - [x] Support series as individual channels
+- [x] Video searches
+- [x] Uncategorized video feed (see the [notice](#notice))
 - [ ] Platform comments
-- [ ] Video searches
 - [ ] Alternative video formats, defaults to HLS (Progressive MP4, etc)
 - [ ] Alternative home pages (Popular, my list, etc)
-- [ ] Uncategorized video feeds (see the [notice](#notice))
-- [ ] Fix bug requiring you to relogin sometimes
+- [ ] Fix bug requiring you to relogin sometimes, unsure ATM what is causing it
 
 
 ### Contributions

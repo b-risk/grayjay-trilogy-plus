@@ -10,8 +10,8 @@
   "version": 1,
   "iconUrl": "./TrilogyPlusIcon.png",
   "id": "ca4747c0-7fff-4909-a448-545f54e7f8ee",
-  "scriptSignature": "n6YSv4c4iJHL/GiyoNhyHejKzBYQOAWr27Zlc5IVw4/RbI1M0YDEGPmvHMhWlPsMAtyfvTeXK4C+bhnwOeWVgM46M5AGDDIXfRQghdXQeHj4zv3phpto/3J9wPjfEV+aPR05pbCZa95CHK7tjmbzf+O9xPIrSw/Fp9kaRu5dghGMaIeJ7rC1Y17J30hXcCDVbK43+vWKY1ygBiz15wrvNVcJt2sCo9pRJ437lrHP9l7ZeJtbG5SkcgbcCNHsCSDSb5HctK4ijeyYd6KeGTB3kctW2J/BFPjCo/HUEOU7abWB0If9x24sflSVI00hLm6edaTqGH1/Dp3QIL0b7w6YmA==",
-  "scriptPublicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtynI2tfJRnuB/KHHLUllgHwLlUp5MsIGFKN1qpliY4zzhwhHSPONouOsa04Rw28alcZqg9XUe8nqSmYuNSFlgk3LZWSI5HPa9C5jtnttZyZAkUzx0bj621DKAmQvO4mBu/jp2EPTSTLpnIq7PQEtzKJ3VIXqt+1NSw5cUOVpuLrYZIJ1wktZWnzVGpf6LJMma9if6hvmCUc+REYur1x5xOEwDM7mV8LaNlPoJb8xjxtJ25kiI+WzgJJdVBabNK0f+t1DPbzrFoMGTItK2PetrzmrgaLXDWadUwDq0jsPdshXP4g3hz0K5No0Hyi5YyW/cBNOQXXwwLqDHlzk7MnOSQIDAQAB",
+  "scriptSignature": "",
+  "scriptPublicKey": "",
   "packages": [
     "Http",
     "Utilities",
