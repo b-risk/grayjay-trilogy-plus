@@ -15,16 +15,17 @@ grayjay://plugin/https://raw.githubusercontent.com/b-risk/grayjay-trilogy-plus/r
 ```
 
 ### TODO
-- [ ] Sign plugin
 - [x] Homepage results
 - [x] Video playback & metadata
 - [x] Support series as individual channels
 - [x] Video searches
+- [x] Channel searches
 - [x] Uncategorized video feed (see the [notice](#notice))
+- [x] Alternative video formats, defaults to HLS (Progressive MP4, etc)
+- [ ] Sign plugin
 - [ ] Platform comments
-- [ ] Alternative video formats, defaults to HLS (Progressive MP4, etc)
+- [ ] Playlists support (non-series collection)
 - [ ] Alternative home pages (Popular, my list, etc)
-- [ ] Fix bug requiring you to relogin sometimes, unsure ATM what is causing it
 
 
 ### Contributions
