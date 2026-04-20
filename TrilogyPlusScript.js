@@ -25,8 +25,10 @@ const REGEX_VIDEO_TITLE = /<meta\s+property="og:title"\s+content="([^"]*)"/i; //
 const REGEX_BEARER_TOKEN = /window\.TOKEN\s*=\s*"([^"]+)";/m;
 
 const supportedResolutions = {
+    '1440p': { width: 2560, height: 1440 },
 	'1080p': { width: 1920, height: 1080 },
 	'720p': { width: 1280, height: 720 },
+    '540p': { width: 960, height: 540 },
 	'480p': { width: 854, height: 480 },
 	'360p': { width: 640, height: 360 },
 	'240p': { width: 426, height: 240 },
@@ -41,7 +43,7 @@ source.enable = function (conf) {
 }
 
 source.getHome = function() {
-    return new HomePager(getHomeResults(0, false), true);
+    return new HomePager(getHomeResults(0), true);
 }
 
 source.searchSuggestions = function(query) {
@@ -225,20 +227,28 @@ source.getChannelContents = function(url, type, order, filters, continuationToke
         throw new ScriptException(`Failed to retrieve channel page details [${channelResp.code}]`)
 
     const id = extractDetail(channelResp.body, REGEX_CHANNEL_ID)
+    const bearer = getBearer(channelResp.body)
 
-    const channel = id && getChannelDetails(id);  
+    const channel = id && getChannelDetails(id, bearer);  
 
     let videos = []; // The results (PlatformVideo)
     const hasMore = false; // Are there more pages?
     const context = { url: url, query: null, type: type, order: order, filters: filters, continuationToken: continuationToken }; // Relevant data for the next page
 
     if (url == URL_PLATFORM ) { // Check if channel is uncategorized (not part of any series,) then return the uncategorized videos
-        videos = getHomeResults(0, true);
-        log(JSON.stringify(videos));
+        videos = getHomeResults(0, true, channelResp.body);
         return new SomeChannelVideoPager(videos, hasMore, context);
     };
 
-    const seasonsResp = http.GET(`${API_COLLECTIONS}${id}/items`, {}, true);
+    const seasonsResp = http.GET(
+        `${API_COLLECTIONS}${id}/items`, 
+        { 
+            Authorization: `Bearer ${bearer}`,
+            Accept: 'application/json',
+            Referer: URL_PLATFORM 
+        }, 
+        true
+    );
     
     if (!seasonsResp.isOk) 
         throw new ScriptException(`Failed to retrieve channel seasons details [${seasonsResp.code}]`)
@@ -246,7 +256,15 @@ source.getChannelContents = function(url, type, order, filters, continuationToke
     const seasons = JSON.parse(seasonsResp.body).items.reverse() // Seasons, in reverse order from newest to oldest
 
     for (const season of Object.values(seasons)) {
-        const seasonResp = http.GET(`${API_COLLECTIONS}${season.entity.id}/items`, {}, true);
+        const seasonResp = http.GET(
+            `${API_COLLECTIONS}${season.entity.id}/items`, 
+            { 
+                Authorization: `Bearer ${bearer}`,
+                Accept: 'application/json',
+                Referer: URL_PLATFORM 
+            }, 
+            true
+        );
     
         if (!seasonResp.isOk) 
             throw new ScriptException(`Failed to retrieve channel season details [${seasonResp.code}]`)
@@ -288,14 +306,10 @@ source.getContentDetails = function(url) {
         throw new ScriptException(`Failed to retrieve video details [${videoResp.code}]`)
     
     const id = extractDetail(videoResp.body, REGEX_VIDEO_ID);
-    const bearer = extractDetail(videoResp.body, REGEX_BEARER_TOKEN);
+    const bearer = getBearer(videoResp.body);
     
     if (!id || !bearer) 
-        throw new ScriptException(`Failed to fetch video details, Trilogy Plus likely changed their site.`)
-    
-    const video = getVideoDetails(id, bearer);
-
-    const channel = video.metadata.series_id !== undefined && getChannelDetails(video.metadata.series_id);   
+        throw new ScriptException(`Failed to fetch video details, Trilogy Plus likely changed their site.`)   
 
     const sourceDetails = http.GET(
         `https://api.vhx.tv/videos/${id}/files`, 
@@ -310,17 +324,31 @@ source.getContentDetails = function(url) {
     if (!sourceDetails.isOk)
         throw new ScriptException(`Failed to retrieve video details [${sourceDetails.code}]`);
 
+    const video = getVideoDetails(id, bearer);
+    const channel = video.metadata.series_id !== undefined && getChannelDetails(video.metadata.series_id, bearer);
     let sources = [];
 
     // Loop through video sources
     for (const source of Object.values(JSON.parse(sourceDetails.body))) {
+        const quality = supportedResolutions[source.quality];
         if (source.method == "hls") {
             sources.push(new HLSSource({
-                name: source.codec,
+                name: source.quality + '/' + source.mime_type,
                 url: source._links.source.href,
                 priority: true
             }));
-        } 
+        } else if (source.method == "progressive" && quality) {
+            new VideoUrlSource({
+                width: quality.width,
+                height: quality.height,
+                container: source.mime_type,
+                codec: source.codec,
+                name: source.quality + '/' + source.mime_type,
+                bitrate: ( source.size.bytes * 8 ) / video.duration.seconds,
+                duration: video.duration.seconds,
+                url: source._links.source.href
+            });
+        }
     }
     
     return new PlatformVideoDetails({
@@ -388,8 +416,26 @@ source.getSubComments = function (comment) {
 	return getCommentsPager(comment.context.claimId, comment.context.claimId, 1, false, comment.context.commentId);
 }
 
-function getHomeResults(page, excludeCategorized) {
-    const homeResp = http.GET(URL_NEWRELEASES, {}, true);
+function getBearer(html) {
+    if (html) {
+        return extractDetail(html, REGEX_BEARER_TOKEN)
+    } else {
+        const siteResp = http.GET(URL_PLATFORM, {}, true);
+        if (!siteResp.isOk) 
+            throw new ScriptException(`Failed to get token, try relogging in [${siteResp.code}]`);
+        return extractDetail(siteResp.body, REGEX_BEARER_TOKEN)
+    }
+}
+
+function getHomeResults(page, excludeCategorized = false, html)  {
+    const bearer = getBearer(html)
+    const homeResp = http.GET(URL_NEWRELEASES, { 
+            Authorization: `Bearer ${bearer}`,
+            Accept: 'application/json',
+            Referer: URL_PLATFORM 
+        }, 
+        true
+    );
     
     if (!homeResp.isOk) 
         throw new ScriptException(`Failed to get videos in feed, try relogging in [${homeResp.code}]`)
@@ -401,7 +447,7 @@ function getHomeResults(page, excludeCategorized) {
     for (const v of Object.values(results.items)) {
         const video = v.entity
 
-        const channel = video.metadata.series.id !== null && getChannelDetails(video.metadata.series.id); 
+        const channel = video.metadata.series.id !== null && getChannelDetails(video.metadata.series.id, bearer); 
         
         if (excludeCategorized && channel) { // Check if to exclude categorized (series) videos
             continue;
@@ -446,8 +492,16 @@ function getVideoDetails(id, bearer) {
     return JSON.parse(videoResp.body)
 }
 
-function getChannelDetails(id) {
-    const channelDetailsResp = http.GET(API_COLLECTIONS + id, {}, true);
+function getChannelDetails(id, bearer) {
+    const channelDetailsResp = http.GET(
+        API_COLLECTIONS + id,
+        { 
+            Authorization: `Bearer ${bearer}`,
+            Accept: 'application/json',
+            Referer: URL_PLATFORM 
+        }, 
+        true
+    );
 
     if (!channelDetailsResp.isOk) 
         throw new ScriptException(`Failed to retrieve details for channel (${API_COLLECTIONS + id}) [${channelDetailsResp.code}]`)
@@ -485,7 +539,7 @@ class HomePager extends VideoPager {
 	
 	nextPage() {
         this.page++;
-        this.results = getHomeResults(this.page, false);
+        this.results = getHomeResults(this.page);
         this.hasMore = true;
 		return this;
 	}
