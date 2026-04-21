@@ -22,9 +22,9 @@ grayjay://plugin/https://raw.githubusercontent.com/b-risk/grayjay-trilogy-plus/r
 - [x] Channel searches
 - [x] Uncategorized video feed (see the [notice](#notice))
 - [x] Alternative video formats, defaults to HLS (Progressive MP4, etc)
+- [x] Comments support
 - [ ] Sign plugin
-- [ ] Platform comments
-- [ ] Playlists support (non-series collection)
+- [ ] Playlists support (non-series collections)
 - [ ] Alternative home pages (Popular, my list, etc)
 
 

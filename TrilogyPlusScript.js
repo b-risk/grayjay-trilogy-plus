@@ -149,42 +149,9 @@ source.searchChannelContents = function (url, query, type, order, filters, conti
 }
 
 source.searchChannels = function (query, continuationToken) { // Needs to be improvd, currently returns all channels on the platform even if not relevent
-    const showsResp = http.GET(URL_FULLSHOWS, {}, true);
-    
-    if (!showsResp.isOk) 
-        throw new ScriptException(`Failed to get channels, try relogging in [${showsResp.code}]`)
-
-    const results = JSON.parse(showsResp.body);
-
-    const channels = []; // The results (PlatformChannel)
-
-    channels.push(new PlatformChannel({ // Add uncategorized channel "Trilogy Plus"
-            id: new PlatformID(PLATFORM, null, config.id),
-            name: PLATFORM,
-            thumbnail: ICON_TRILOGYPLUS,
-            banner: ICON_TRILOGYPLUS,
-            subscribers: null,
-            description: "Trilogy Plus is an immersive streaming service with the best entertainment in scambaiting, scam-busting, travel and true crime.",
-            url: URL_PLATFORM,
-            links: {}
-        }));
-    
-    for (const channel of Object.values(results.items)) {
-        channels.push(new PlatformChannel({
-            id: new PlatformID(PLATFORM, channel.entity.id.toString(), config.id),
-            name: channel.entity.title,
-            thumbnail: channel.entity.thumbnails["1_1"].medium,
-            banner: channel.entity.thumbnails["16_6"]?.source,
-            subscribers: null,
-            description: channel.entity.description,
-            url: channel.entity.page_url,
-            links: {}
-        }));
-    }
-
     const hasMore = false;
     const context = { query: query, continuationToken: continuationToken }; // Relevant data for the next page
-    return new SomeChannelPager(channels, hasMore, context);
+    return new SomeChannelPager(searchCollections(1, query, 'collection', 'series'), hasMore, context);
 }
 
 source.isChannelUrl = function(url) {
@@ -300,21 +267,12 @@ source.isContentDetailsUrl = function(url) {
 }
 
 source.getContentDetails = function(url) {
-    const videoResp = http.GET(url, {}, true);
-    
-    if (!videoResp.isOk) 
-        throw new ScriptException(`Failed to retrieve video details [${videoResp.code}]`)
-    
-    const id = extractDetail(videoResp.body, REGEX_VIDEO_ID);
-    const bearer = getBearer(videoResp.body);
-    
-    if (!id || !bearer) 
-        throw new ScriptException(`Failed to fetch video details, Trilogy Plus likely changed their site.`)   
+    const video = getVideoDetails(url);
 
     const sourceDetails = http.GET(
-        `https://api.vhx.tv/videos/${id}/files`, 
+        `https://api.vhx.tv/videos/${video.id}/files`, 
         { 
-            Authorization: `Bearer ${bearer}`,
+            Authorization: `Bearer ${video.bearer}`,
             Accept: 'application/json',
             Referer: URL_PLATFORM 
         }, 
@@ -322,9 +280,8 @@ source.getContentDetails = function(url) {
     );
 
     if (!sourceDetails.isOk)
-        throw new ScriptException(`Failed to retrieve video details [${sourceDetails.code}]`);
+        throw new ScriptException(`Failed to retrieve video details for video ID ${video.id} [${sourceDetails.code}]`);
 
-    const video = getVideoDetails(id, bearer);
     const channel = video.metadata.series_id !== undefined && getChannelDetails(video.metadata.series_id, bearer);
     let sources = [];
 
@@ -352,7 +309,7 @@ source.getContentDetails = function(url) {
     }
     
     return new PlatformVideoDetails({
-        id: new PlatformID(PLATFORM, String(id), config.id),
+        id: new PlatformID(PLATFORM, String(video.id), config.id),
         name: video.name,
         thumbnails: new Thumbnails([new Thumbnail(video.thumbnail.source, 0)]),
         author: new PlatformAuthorLink(
@@ -373,31 +330,39 @@ source.getContentDetails = function(url) {
 
 
 source.getComments = function (url, continuationToken) {
-    // const videoResp = http.GET(url, {}, true);
+    const video = getVideoDetails(url);
     
-    // if (!videoResp.isOk) 
-    //     throw new ScriptException(`Failed to retrieve video details [${videoResp.code}]`)
+    const commentsResp = http.GET(
+        video._links.comments.href, 
+        { 
+            Authorization: `Bearer ${video.bearer}`,
+            Accept: 'application/json',
+            Referer: URL_PLATFORM 
+        }, 
+        true
+    );
 
-    // const id = extractDetail(videoResp.body, REGEX_VIDEO_COMMENTS_ID)
+    if (!commentsResp.isOk)
+        throw new ScriptException(`Failed to retrieve comments [${commentsResp.code}]`);
 
-    // const commentsResp = http.GET(`${URL_PLATFORM}comments?commentable_type=Video&commentable_id=${id}&sort=desc&sort_by=created_at`, 
-    //     {
-    //         Accept: 'application/json',
-    //         Referer: URL_PLATFORM 
-    //     },
-    //     true
-    // )
-    
-    // if (!commentsResp.isOk) 
-    //     throw new ScriptException(`Failed to retrieve comments [${commentsResp.code}]`)
+    //Map comments
+	const comments = JSON.parse(commentsResp.body)?._embedded?.comments?.map(comment => {
+		const c = new Comment({
+			contextUrl: url,
+			author: new PlatformAuthorLink(
+                new PlatformID(PLATFORM, comment._embedded?.customer?.name, config.id),
+				comment._embedded?.customer?.name ?? "",
+				null,
+				!comment._embedded?.customer?.thumbnail?.medium.includes('blank') && comment._embedded?.customer?.thumbnail?.medium || ICON_TRILOGYPLUS // Handle cases if avatar doesn't exist
+            ),
+			message: comment.content ?? "",
+			date: parseInt((new Date(comment.created_at)).getTime() / 1000),
+			replyCount: comment.comments_count,
+			context: { claimId: null, commentId: comment.id, isMembersOnly: null }
+		});
+		return c;
+	}) ?? [];
 
-    // const results = domParser.parseFromString(
-    //     JSON.parse(commentsResp.body).partial,
-    //     'text/html'
-    // );   
-
-    // throw new ScriptException(results) // Returns null
-    const comments = []; // The results (Comment)
     const hasMore = false; // Are there more pages?
     const context = { url: url, continuationToken: continuationToken }; // Relevant data for the next page
     return new SomeCommentPager(comments, hasMore, context);
@@ -438,7 +403,7 @@ function getHomeResults(page, excludeCategorized = false, html)  {
     );
     
     if (!homeResp.isOk) 
-        throw new ScriptException(`Failed to get videos in feed, try relogging in [${homeResp.code}]`)
+        throw new CaptchaRequiredException(URL_PLATFORM)
 
     const results = JSON.parse(homeResp.body);
 
@@ -475,8 +440,71 @@ function getHomeResults(page, excludeCategorized = false, html)  {
     return videos;
 }
 
-function getVideoDetails(id, bearer) {
+function searchCollections(page, query, searchType, returnType, bearer = getBearer()) {
+    const searchResp = http.GET(
+        `${API_BASE}search?q=${query}&type=${searchType}&page=${page}`,
+        { 
+            Authorization: `Bearer ${bearer}`,
+            Accept: 'application/json',
+            Referer: URL_PLATFORM 
+        }, 
+        true
+    );
+    
+    if (!searchResp.isOk)
+        throw new ScriptException(`Search type ${searchType} failed [${searchResp.code}]`);
+
+    if (searchType == 'collection') {
+        const channels = []; // The results (PlatformChannel)
+
+        if (PLATFORM.toLowerCase().includes(query.toLowerCase())) {
+            channels.push(new PlatformChannel({ // Add uncategorized channel "Trilogy Plus"
+                id: new PlatformID(PLATFORM, null, config.id),
+                name: PLATFORM,
+                thumbnail: ICON_TRILOGYPLUS,
+                banner: ICON_TRILOGYPLUS,
+                subscribers: null,
+                description: "Trilogy Plus is an immersive streaming service with the best entertainment in scambaiting, scam-busting, travel and true crime.",
+                url: URL_PLATFORM,
+                links: {}
+            }));
+        };
+        
+        for (const c of Object.values(results.items)) {
+            const channel = c.entity
+            if (channel.type == returnType) {
+                channels.push(new PlatformChannel({
+                    id: new PlatformID(PLATFORM, channel.id.toString(), config.id),
+                    name: channel.title,
+                    thumbnail: channel.thumbnails["1_1"]?.medium,
+                    banner: channel.thumbnails["16_6"]?.source,
+                    subscribers: null,
+                    description: channel.description,
+                    url: channel.page_url,
+                    links: {}
+                }));
+            }
+        }
+    }
+    return JSON.parse(videoResp.body)
+}
+
+function getVideoDetails(url, bearer = getBearer()) {
     const videoResp = http.GET(
+        url, 
+        { 
+            Authorization: `Bearer ${bearer}`,
+            Referer: URL_PLATFORM 
+        }, 
+        true
+    );
+    
+    if (!videoResp.isOk) 
+        throw new ScriptException(`Failed to retrieve video ${url} [${videoResp.code}]`)
+    
+    const id = extractDetail(videoResp.body, REGEX_VIDEO_ID);
+
+    const videoDetailsResp = http.GET(
         `https://api.vhx.tv/videos/${id}`, 
         { 
             Authorization: `Bearer ${bearer}`,
@@ -486,10 +514,13 @@ function getVideoDetails(id, bearer) {
         true
     );
 
-    if (!videoResp.isOk)
-        throw new ScriptException(`Failed to retrieve video details [${videoResp.code}]`);
+    if (!videoDetailsResp.isOk)
+        throw new ScriptException(`Failed to retrieve video details [${videoDetailsResp.code}]`);
 
-    return JSON.parse(videoResp.body)
+    const details = JSON.parse(videoDetailsResp.body)
+
+    details.bearer = bearer
+    return details
 }
 
 function getChannelDetails(id, bearer) {

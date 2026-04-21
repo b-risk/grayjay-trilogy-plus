@@ -26,7 +26,8 @@
     ".vimeo.com",
     ".vimeocdn.com",
     ".imgix.net",
-    ".cloudfront.net"
+    ".cloudfront.net",
+    ".gravatar.com"
   ],
   "authentication": {
     "loginUrl": "https://www.trilogyplus.com/login",
