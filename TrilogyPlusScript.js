@@ -8,6 +8,9 @@ const ICON_TRILOGYPLUS = "https://dr56wvhu2c8zo.cloudfront.net/trilogyplus/asset
 const API_BASE = 'https://api.vhx.com/v2/sites/156301/'
 const API_COLLECTIONS = API_BASE + 'collections/'
 
+// API for generating miscellaneous comment avatars
+const API_UI_AVATARS = 'https://ui-avatars.com/api/?color=fffffff&bold=true&format=png&size=128&length=1&background=random&name='
+
 // URLs handling different pages for content
 const URL_NEWRELEASES = API_COLLECTIONS + '1491720/items?include_products_for=web&per_page=12&include_events=1&include_coming_soon=1';
 const URL_FULLSHOWS = API_COLLECTIONS + '1080914/items'
@@ -345,7 +348,7 @@ source.getComments = function (url, continuationToken) {
     if (!commentsResp.isOk)
         throw new ScriptException(`Failed to retrieve comments [${commentsResp.code}]`);
 
-    //Map comments
+    // Map comments
 	const comments = JSON.parse(commentsResp.body)?._embedded?.comments?.map(comment => {
 		const c = new Comment({
 			contextUrl: url,
@@ -353,7 +356,10 @@ source.getComments = function (url, continuationToken) {
                 new PlatformID(PLATFORM, comment._embedded?.customer?.name, config.id),
 				comment._embedded?.customer?.name ?? "",
 				null,
-				!comment._embedded?.customer?.thumbnail?.medium.includes('blank') && comment._embedded?.customer?.thumbnail?.medium || ICON_TRILOGYPLUS // Handle cases if avatar doesn't exist
+				!comment._embedded?.customer?.thumbnail?.medium.includes('blank') 
+                && comment._embedded?.customer?.thumbnail?.medium 
+                || generateAvatar(comment._embedded?.customer?.name ?? "") 
+                || ICON_TRILOGYPLUS // Handle cases if avatar doesn't exist
             ),
 			message: comment.content ?? "",
 			date: parseInt((new Date(comment.created_at)).getTime() / 1000),
@@ -368,6 +374,7 @@ source.getComments = function (url, continuationToken) {
     return new SomeCommentPager(comments, hasMore, context);
 
 }
+
 source.getSubComments = function (comment) {
     /**
      * @param comment: Comment
@@ -404,7 +411,7 @@ function getHomeResults(page, excludeCategorized = false, html)  {
     
     if (!homeResp.isOk) {
         const siteResp = http.GET(URL_PLATFORM, {}, true);
-        throw new CaptchaRequiredException(URL_PLATFORM, siteResp.body);
+        throw new CaptchaRequiredException(URL_PLATFORM + 'browse', siteResp.body);
     };
 
     const results = JSON.parse(homeResp.body);
@@ -488,9 +495,16 @@ function searchCollections(page, query, searchType, returnType, bearer = getBear
             }
         }
     }
-    return JSON.parse(videoResp.body)
+    return JSON.parse(videoResp.body);
 }
 
+// Helper: Generate image for miscellaneous avatars in comments
+function generateAvatar(name) {
+    log(API_UI_AVATARS + name.replace(/ /g, '+'));
+    return API_UI_AVATARS + name.replace(/ /g, '+');
+};
+
+// Helper: Get video details from given url
 function getVideoDetails(url, bearer = getBearer()) {
     const videoResp = http.GET(
         url, 

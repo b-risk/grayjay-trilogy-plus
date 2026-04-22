@@ -27,7 +27,8 @@
     ".vimeocdn.com",
     ".imgix.net",
     ".cloudfront.net",
-    ".gravatar.com"
+    ".gravatar.com",
+    "ui-avatars.com"
   ],
   "authentication": {
     "loginUrl": "https://www.trilogyplus.com/login",
