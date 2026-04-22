@@ -402,12 +402,14 @@ function getHomeResults(page, excludeCategorized = false, html)  {
         true
     );
     
-    if (!homeResp.isOk) 
-        throw new CaptchaRequiredException(URL_PLATFORM)
+    if (!homeResp.isOk) {
+        const siteResp = http.GET(URL_PLATFORM, {}, true);
+        throw new CaptchaRequiredException(URL_PLATFORM, siteResp.body);
+    };
 
     const results = JSON.parse(homeResp.body);
 
-    const videos = []
+    const videos = [];
 
     for (const v of Object.values(results.items)) {
         const video = v.entity
