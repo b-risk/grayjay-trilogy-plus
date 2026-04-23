@@ -23,18 +23,18 @@ grayjay://plugin/https://raw.githubusercontent.com/b-risk/grayjay-trilogy-plus/r
 - [x] Uncategorized video feed (see the [notice](#notice))
 - [x] Alternative video formats, defaults to HLS (Progressive MP4, etc)
 - [x] Generate miscellaneous comment avatars using the [UI Avatars API](https://ui-avatars.com/) 
+- [x] Playlists searches/support (non-series collections)
 - [x] Comments support
 - [ ] Comment replies support
-- [ ] Sign plugin
-- [ ] Playlists support (non-series collections)
 - [ ] Alternative home pages (Popular, my list, etc)
+- [ ] Sign plugin
 
 
 ### Contributions
 Contributions are welcome, feel free to submit pull requests if you think you can improve something or fix a bug.
 
 ### Credits
-Special thanks to Stefan Cruz for his help with the development of the plugin.
+Special thanks to Stefan Cruz for his help during the development of the plugin.
 
 ### Signing
 ```bash
