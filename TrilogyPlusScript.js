@@ -548,7 +548,7 @@ function getSearchResults(page, query, returnType, bearer = getBearer()) {
                     url: entity.page_url
                 }));
             } else if (returnType == 'video') {
-                const channel = video.metadata?.series?.id !== null && getCollectionDetails(video.metadata?.series?.id, bearer)
+                const entity = video.metadata?.series?.id !== null && getCollectionDetails(entity.metadata?.series?.id, bearer)
 
                 results.push(new PlatformVideo({
                     id: new PlatformID(PLATFORM, String(entity.id), config.id),
