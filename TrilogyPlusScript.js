@@ -147,11 +147,11 @@ source.getChannel = function(url) {
 source.getChannelContents = function(url, type, order, filters, continuationToken) {
     const channelResp = http.GET(url, {}, true);
 
-    if (!channelResp.isOk) 
+    if (!channelResp.isOk) {
         throw new ScriptException(`Failed to retrieve channel page details [${channelResp.code}]`)
-
-    const id = extractDetail(channelResp.body, REGEX_CHANNEL_ID)
-    const bearer = getBearer(channelResp.body)
+    };
+    const id = extractDetail(channelResp.body, REGEX_CHANNEL_ID);
+    const bearer = getBearer(channelResp.body);
 
     const channel = id && getCollectionDetails(id, bearer);  
 
@@ -396,31 +396,40 @@ source.getComments = function (url, continuationToken) {
 }
 
 source.getSubComments = function (comment) {
-    /**
-     * @param comment: Comment
-     * @returns: SomeCommentPager
-     */
+    const commentsResp = http.GET(
+        API_BASE + 'comments/' + comment.context.commentId, 
+        { 
+            Authorization: `Bearer ${video.bearer}`,
+            Accept: 'application/json',
+            Referer: URL_PLATFORM 
+        }, 
+        true
+    );
 
-	if (typeof comment === 'string') {
-		comment = JSON.parse(comment);
-	}
+    throw new ScriptException(commentsResp.body);
 
 	return getCommentsPager(comment.context.claimId, comment.context.claimId, 1, false, comment.context.commentId);
-}
+};
 
 function getBearer(html) {
     if (html) {
-        return extractDetail(html, REGEX_BEARER_TOKEN)
+        return extractDetail(html, REGEX_BEARER_TOKEN);
     } else {
         const siteResp = http.GET(URL_PLATFORM + 'browse', {}, true);
-        if (!siteResp.isOk) 
+
+        if (!siteResp.isOk) {
             throw new ScriptException(`Failed to get token, try relogging in [${siteResp.code}]`);
-        return extractDetail(siteResp.body, REGEX_BEARER_TOKEN)
-    }
-}
+        };
+        const bearer = extractDetail(siteResp.body, REGEX_BEARER_TOKEN);
+        if (!bearer || typeof(bearer) !== 'string') {
+            throw new ScriptException(`Bearer token not found in HTML ${siteResp.body}`);
+        };
+        return bearer;
+    };
+};
 
 function getHomeResults(page, excludeCategorized = false, html)  {
-    const bearer = getBearer(html)
+    const bearer = getBearer(html);
     const homeResp = http.GET(URL_NEWRELEASES, { 
             Authorization: `Bearer ${bearer}`,
             Accept: 'application/json',
@@ -544,7 +553,7 @@ function getSearchResults(page, query, returnType, bearer = getBearer()) {
                     name: entity.title,
                     thumbnails: new Thumbnails([new Thumbnail(entity.thumbnails["16_9"].large, 0)]),
                     author: new PlatformAuthorLink(
-                        new PlatformID(PLATFORM, seriesId, config.id),
+                        new PlatformID(PLATFORM, entity.metadata?.series?.id, config.id),
                         entity.metadata?.series?.name || PLATFORM,
                         channel?.page_url || URL_PLATFORM,
                         channel?.thumbnails?.["1_1"].medium || ICON_TRILOGYPLUS
