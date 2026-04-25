@@ -479,7 +479,6 @@ function getPlatformVideo(video, channel) {
 };
 
 function getHomeResults(page, excludeCategorized = false, html)  {
-    throw new ScriptException(getCollectionDetails(getSeriesId('https://www.trilogyplus.com/40-club')));
     const collectionId = excludeCategorized && 1 || settings.homeFeedSource;
     const bearer = getBearer(html);
     const homeResp = http.GET(API_COLLECTIONS_VIDEOS.replace('ID', collections[collectionId]), { 
