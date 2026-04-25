@@ -527,7 +527,7 @@ function getSearchResults(page, query, returnType, bearer = getBearer()) {
             Accept: 'application/json',
             Referer: URL_PLATFORM 
         }, 
-        true
+        bridge.isLoggedIn()
     );
     
     if (!searchResp.isOk) {
