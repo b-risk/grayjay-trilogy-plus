@@ -250,7 +250,7 @@ source.getContentDetails = function(url) {
 
     if (!sourceDetails.isOk)
         throw new ScriptException(`Failed to retrieve video details for video ID ${video.id} [${sourceDetails.code}]`);
-
+    bridge.log(sourceDetails.body);
     const channel = video.metadata.series_id !== undefined && getCollectionDetails(video.metadata.series_id, video.bearer);
     let sources = [];
 
