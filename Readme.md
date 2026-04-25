@@ -25,8 +25,9 @@ grayjay://plugin/https://raw.githubusercontent.com/b-risk/grayjay-trilogy-plus/r
 - [x] Generate miscellaneous comment avatars using the [UI Avatars API](https://ui-avatars.com/) 
 - [x] Playlists searches/support (non-series collections)
 - [x] Comments support
+- [x] All home pages support (Free Videos, New Releases, Popular, etc)
 - [ ] Comment replies support
-- [ ] Alternative home pages (Popular, my list, etc)
+- [ ] Import "My List" as playlist
 - [ ] Sign plugin
 
 

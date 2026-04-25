@@ -42,7 +42,32 @@
   },
   "captcha": {
     "userAgent": "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.200 Mobile Safari/537.36",
-    "captchaUrl": null,
-    "completionUrl": "https://www.trilogyplus.com/placeholder"
-  }
+    "captchaUrl": "https://www.trilogyplus.com/browse",
+    "cookiesToFind": [
+			"_session"
+		],
+    "headersToFind": [
+      "Authorization"
+    ]
+  },
+  "settings": [
+    {
+			"variable": "homeHeader",
+			"name": "Home Feed",
+			"description": "Source for the home feed",
+			"type": "Header"
+		},
+    {
+			"variable": "homeFeedSource",
+			"name": "Home Feed Type",
+			"description": "Select your preferred source for the home feed",
+			"type": "Dropdown",
+			"default": "0",
+			"options": [
+				"Free Videos",
+				"New Releases",
+				"Popular"
+			]
+    }
+  ]
 }
