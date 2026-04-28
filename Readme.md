@@ -6,7 +6,7 @@
 This plugin adds support for the streaming service Trilogy Plus, allowing you to use it in Grayjay.
 
 ### Installation
-You can install the plugin by scanning this QR code:
+You can install the plugin by scanning this QR code:  
 ![QR Code](https://raw.githubusercontent.com/b-risk/grayjay-trilogy-plus/refs/heads/main/qr-code.png)
 
 Alternatively, you can add it manually by using this link:
@@ -20,10 +20,10 @@ grayjay://plugin/https://raw.githubusercontent.com/b-risk/grayjay-trilogy-plus/r
 - [x] Support series as individual channels
 - [x] Video searches
 - [x] Channel searches
-- [x] Uncategorized video feed (see the [notice](#notice))
+- [x] Uncategorized videos feed as channel (see the [notice](#notice))
 - [x] Alternative video formats, defaults to HLS (Progressive MP4, etc)
 - [x] Generate miscellaneous comment avatars using the [UI Avatars API](https://ui-avatars.com/) 
-- [x] Playlists searches/support (non-series collections)
+- [x] Playlists search & support (non-series collections)
 - [x] Comments support
 - [x] All home pages support (Free Videos, New Releases, Popular, etc)
 - [ ] Comment replies support
