@@ -1,38 +1,44 @@
 // Platform information
-const PLATFORM = 'Trilogy Plus'
+const PLATFORM = 'Trilogy Plus';
 const URL_PLATFORM = 'https://www.trilogyplus.com/';
 
-// TrilogyPlus icon, used for the uncategorized chanel
-const ICON_TRILOGYPLUS = "https://dr56wvhu2c8zo.cloudfront.net/trilogyplus/assets/739ad5e0-ee07-4677-ac2b-c0c5ab40adb3.png";
+// Redundant, removing soon
+const ICON_TRILOGYPLUS = 'https://dr56wvhu2c8zo.cloudfront.net/trilogyplus/assets/739ad5e0-ee07-4677-ac2b-c0c5ab40adb3.png';
 
-// API bases
-const API_BASE = 'https://api.vhx.com/v2/sites/156301/'
-const API_COLLECTIONS = API_BASE + 'collections/'
-const API_COLLECTIONS_VIDEOS = API_COLLECTIONS + 'ID/items'
+const API = 'https://api.vhx.com/'
+const API_BASE = API + 'v2/sites/156301/'
 
-// API for generating miscellaneous comment avatars
-const API_UI_AVATARS = 'https://ui-avatars.com/api/?color=fffffff&bold=true&format=png&size=128&length=1&background=random&name='
+const URLS = {
+    PLATFORM: 'https://www.trilogyplus.com/',
+    ICON: 'https://dr56wvhu2c8zo.cloudfront.net/trilogyplus/assets/739ad5e0-ee07-4677-ac2b-c0c5ab40adb3.png',
+    APIS: {
+        UI_AVATARS: 'https://ui-avatars.com/api/?color=fffffff&bold=true&format=png&size=128&length=1&background=random&name=',
+        COLLECTIONS: API_BASE + 'collections/',
+        COMMENTS: API + 'comments/'
+    }
+};
+const API_COLLECTIONS = API_BASE + 'collections/' // Redundant, removing soon
+const API_COLLECTIONS_VIDEOS = API_COLLECTIONS + 'ID/items' // Redundant, removing soon
+const API_UI_AVATARS = 'https://ui-avatars.com/api/?color=fffffff&bold=true&format=png&size=128&length=1&background=random&name=' // Redundant, removing soon
 
-// Collection IDs and URLs handling different pages for content
-const URL_NEWRELEASES = API_COLLECTIONS + '1491720/items?include_products_for=web&per_page=12&include_events=1&include_coming_soon=1'; // Unused
-const URL_FULLSHOWS = API_COLLECTIONS + '1080914/items' // Unused
-const URL_CHANNELVIDEOS = API_COLLECTIONS + '1021973/item' // Unused
-const collections = [
+const HOMEPAGE_IDS = [
     1067129, // Free Videos
     1491720, // New Releases
 	1480905 // Popular
 ];
 
 // Regex variables for extracting metadata
-const regexTypes = {
-    content_url: /^https:\/\/www\.trilogyplus\.com\/videos\/[^\/]+$/
+const REGEX = {
+    CONTENT: /^https:\/\/www\.trilogyplus\.com\/videos\/[^\/]+$/,
+    COLLECTION: /^https:\/\/(?:www\.)?trilogyplus\.com\/[^\/]+$/,
+    CHANNEL_ID: /"COLLECTION_ID":"?([^",]+)"?,"COLLECTION_TITLE"/,
+    VIDEO_ID: /"video","VIDEO_ID":(\d+)/,
+    BEARER_TOKEN: /window\.TOKEN\s*=\s*"([^"]+)";/m
 };
-const REGEX_COLLECTION_URL = /^https:\/\/(?:www\.)?trilogyplus\.com\/[^\/]+$/;
-const REGEX_CHANNEL_ID = /"COLLECTION_ID":"?([^",]+)"?,"COLLECTION_TITLE"/;
-const REGEX_VIDEO_ID = /"video","VIDEO_ID":(\d+)/;
-const REGEX_VIDEO_COMMENTS_ID = /window\.COMMENTABLE_ID\s*=\s*(\w+)/i; // Unused
-const REGEX_VIDEO_TITLE = /<meta\s+property="og:title"\s+content="([^"]*)"/i; // Unused
-const REGEX_BEARER_TOKEN = /window\.TOKEN\s*=\s*"([^"]+)";/m;
+const REGEX_COLLECTION_URL = /^https:\/\/(?:www\.)?trilogyplus\.com\/[^\/]+$/; // Redundant, removing soon
+const REGEX_CHANNEL_ID = /"COLLECTION_ID":"?([^",]+)"?,"COLLECTION_TITLE"/; // Redundant, removing soon
+const REGEX_VIDEO_ID = /"video","VIDEO_ID":(\d+)/; // Redundant, removing soon
+const REGEX_BEARER_TOKEN = /window\.TOKEN\s*=\s*"([^"]+)";/m; // Redundant, removing soon
 
 const supportedResolutions = {
     '1440p': { width: 2560, height: 1440 },
@@ -133,12 +139,12 @@ source.isChannelUrl = function(url) {
     if (url == URL_PLATFORM) {
         return true;
     } else if (REGEX_COLLECTION_URL.test(url)) {
-        return  getCollectionDetails(getSeriesId(url)).type == 'series';
+        return getCollectionDetails(getSeriesId(url)).type == 'series';
     };
 }
 
 source.getChannel = function(url) {
-    let channel = (url !== URL_PLATFORM) && getCollectionDetails(getSeriesId(url), getBearer());
+    const channel = (url !== URL_PLATFORM) && getCollectionDetails(getSeriesId(url), getBearer());
 
 	return new PlatformChannel({
         id: new PlatformID(PLATFORM, String(channel?.id), config.id),
@@ -153,50 +159,33 @@ source.getChannel = function(url) {
 }
 
 source.getChannelContents = function(url, type, order, filters, continuationToken) {
-    const channelResp = http.GET(url, {}, true);
-
-    if (!channelResp.isOk) {
-        throw new ScriptException(`Failed to retrieve channel page details [${channelResp.code}]`)
+    const hasMore = false; // Are there more pages?
+    const context = { url: url, query: null, type: type, order: order, filters: filters, continuationToken: continuationToken }; // Relevant data for the next page
+    
+    // Check if channel is uncategorized (not part of any series,) then return the uncategorized videos
+    if (url == URL_PLATFORM ) {
+        return new SomeChannelVideoPager(getHomeResults(0, true), hasMore, context);
     };
+    
+    const channelResp = httpGET(url, false, false);
     const id = extractDetail(channelResp.body, REGEX_CHANNEL_ID);
     const bearer = getBearer(channelResp.body);
 
     const channel = id && getCollectionDetails(id, bearer);  
 
-    let videos = []; // The results (PlatformVideo)
-    const hasMore = false; // Are there more pages?
-    const context = { url: url, query: null, type: type, order: order, filters: filters, continuationToken: continuationToken }; // Relevant data for the next page
+    const seasonsResp = httpGET(`${API_COLLECTIONS}${id}/items`, true, false, bearer);
 
-    if (url == URL_PLATFORM ) { // Check if channel is uncategorized (not part of any series,) then return the uncategorized videos
-        videos = getHomeResults(0, true, channelResp.body);
-        return new SomeChannelVideoPager(videos, hasMore, context);
+    if (!seasonsResp.isOk) {
+        throw new ScriptException(`Failed to retrieve series seasons [${seasonsResp.code}]`);
     };
 
-    const seasonsResp = http.GET(
-        `${API_COLLECTIONS}${id}/items`, 
-        { 
-            Authorization: `Bearer ${bearer}`,
-            Accept: 'application/json',
-            Referer: URL_PLATFORM 
-        }, 
-        true
-    );
-    
-    if (!seasonsResp.isOk) 
-        throw new ScriptException(`Failed to retrieve channel seasons details [${seasonsResp.code}]`)
+    // Seasons, in reverse order from newest to oldest
+    const seasons = JSON.parse(seasonsResp.body).items.reverse()
 
-    const seasons = JSON.parse(seasonsResp.body).items.reverse() // Seasons, in reverse order from newest to oldest
+    let videos = []; // The results (PlatformVideo)
 
     for (const season of Object.values(seasons)) {
-        const seasonResp = http.GET(
-            `${API_COLLECTIONS}${season.entity.id}/items`, 
-            { 
-                Authorization: `Bearer ${bearer}`,
-                Accept: 'application/json',
-                Referer: URL_PLATFORM 
-            }, 
-            true
-        );
+        const seasonResp = httpGET(`${API_COLLECTIONS}${season.entity.id}/items`, true, false, bearer);
     
         if (!seasonResp.isOk) 
             throw new ScriptException(`Failed to retrieve channel season details [${seasonResp.code}]`)
@@ -228,13 +217,17 @@ source.getChannelContents = function(url, type, order, filters, continuationToke
 }
 
 source.isContentDetailsUrl = function(url) {
-	return regexTypes.content_url.test(url);
+	return REGEX.CONTENT.test(url);
 }
 
 source.getContentDetails = function(url) {
     const video = getVideoDetails(url);
 
-    if (!video.is_free && !bridge.isLoggedIn()) {
+    const userHasSub = true;
+
+    if (!bridge.isLoggedIn()) {
+        throw new LoginRequiredException('Login required for Trilogy Plus content');
+    } else if (!userHasSub && !video.is_free) {
         throw new LoginRequiredException('Login required for premium content');
     };
 
@@ -299,40 +292,18 @@ source.getContentDetails = function(url) {
 
 source.isPlaylistUrl = function (url) {
     if (REGEX_COLLECTION_URL.test(url)) {
-        return getCollectionDetails(getSeriesId(url), getBearer()).type == 'playlist';
+        return getCollectionDetails(getSeriesId(url)).type == 'playlist';
     };
 }
 
-source.getPlaylist = function (url) {
-    const id = getSeriesId(url);
-    const bearer = getBearer();
-
+source.getPlaylist = function (url, id, bearer = getBearer(), page = 1) {
+    id = !id && getSeriesId(url) || id
     const playlist = getCollectionDetails(id, bearer);
-    const playlistVideos = getCollectionVideos(id, bearer);
+    const playlistVideos = getPlaylistVideos(id, page, bearer);
 
-    const videos = [];
+    const videos = playlistVideos.videos;
 
-    for (const v of Object.values(playlistVideos.items)) {
-        const video = v.entity;
-        const channel = video.metadata.series.id !== null && getCollectionDetails(video.metadata.series.id, bearer);
-
-        videos.push(new PlatformVideo({
-            id: new PlatformID(PLATFORM, String(video.id), config.id),
-            name: video.title,
-			thumbnails: new Thumbnails([new Thumbnail(video.thumbnails["16_9"].large, 0)]),
-			author: new PlatformAuthorLink(
-				new PlatformID(PLATFORM, video.metadata.series.id, config.id),
-				video.metadata.series.name || PLATFORM,
-				channel.page_url || URL_PLATFORM,
-				channel.thumbnails?.["1_1"]?.medium || ICON_TRILOGYPLUS
-			),
-			datetime: Math.round((new Date(video.created_at)).getTime() / 1000),
-			duration: video.duration.seconds,
-			viewCount: null,
-			url: video.page_url,
-			isLive: video.live_video
-		}));
-    }
+    const context = {url: url, playlistId: id, bearer: bearer, pages: playlistVideos.pagination.count, perPage: playlistVideos.pagination.per_page};
 
     return new PlatformPlaylistDetails({
         id: new PlatformID(PLATFORM, String(playlist.id), config.id),
@@ -350,9 +321,9 @@ source.getPlaylist = function (url) {
         ),
         url,
         thumbnail: playlist.thumbnails?.['16_9']?.large,
-        contents: new PlaylistContentsPager(videos, playlist.pagination?.page)
+        contents: new PlaylistContentsPager(videos, playlistVideos.pagination.count > playlistVideos.pagination.current, context)
     });
-}
+};
 
 source.searchPlaylists = function (query, type, order, filters, continuationToken) {
     const playlists = getSearchResults(1, query, 'playlist');
@@ -365,15 +336,7 @@ source.searchPlaylists = function (query, type, order, filters, continuationToke
 source.getComments = function (url, continuationToken) {
     const video = getVideoDetails(url);
     
-    const commentsResp = http.GET(
-        video._links.comments.href, 
-        { 
-            Authorization: `Bearer ${video.bearer}`,
-            Accept: 'application/json',
-            Referer: URL_PLATFORM 
-        }, 
-        true
-    );
+    const commentsResp = httpGET(video._links.comments.href, true, false, video.bearer);
 
     if (!commentsResp.isOk)
         throw new ScriptException(`Failed to retrieve comments [${commentsResp.code}]`);
@@ -402,23 +365,42 @@ source.getComments = function (url, continuationToken) {
     const hasMore = false; // Are there more pages?
     const context = { url: url, continuationToken: continuationToken }; // Relevant data for the next page
     return new SomeCommentPager(comments, hasMore, context);
-
-}
+};
 
 source.getSubComments = function (comment) {
-    bridge.log(JSON.stringify(comment));
-    const commentsResp = http.GET(
-        API_BASE + 'comments/' + comment.context.commentId, 
-        { 
-            Authorization: `Bearer ${getBearer()}`,
-            Accept: 'application/json',
-            Referer: URL_PLATFORM 
-        }, 
-        true
+    const commentsResp = httpGET(
+        URLS.APIS.COMMENTS + comment.context.commentId,  
+        true,
+        false
     );
-    throw new ScriptException(commentsResp.body);
 
-	return getCommentsPager(comment.context.claimId, comment.context.claimId, 1, false, comment.context.commentId);
+    if (!commentsResp.isOk)
+        throw new ScriptException(`Failed to retrieve comments [${commentsResp.code}]`);
+
+    // Map comments
+	const comments = JSON.parse(commentsResp.body)._embedded.comments.map(comment => {
+		const c = new Comment({
+			contextUrl: url,
+			author: new PlatformAuthorLink(
+                new PlatformID(PLATFORM, comment._embedded?.customer?.name, config.id),
+				comment._embedded?.customer?.name ?? "",
+				null,
+				!comment._embedded?.customer?.thumbnail?.medium.includes('blank') 
+                && comment._embedded?.customer?.thumbnail?.medium 
+                || generateAvatar(comment._embedded?.customer?.name ?? "") 
+                || ICON_TRILOGYPLUS // Handle cases if avatar doesn't exist
+            ),
+			message: comment.content ?? "",
+			date: parseInt((new Date(comment.created_at)).getTime() / 1000),
+			replyCount: comment.comments_count,
+			context: { claimId: null, commentId: comment.id, isMembersOnly: null }
+		});
+		return c;
+	}) ?? [];
+
+    const hasMore = false; // Are there more pages?
+    const context = { url: url, continuationToken: continuationToken }; // Relevant data for the next page
+    return new SomeCommentPager(comments, hasMore, context);
 };
 
 function getBearer(html) {
@@ -462,35 +444,63 @@ function getPlatformVideo(video, channel) {
     return new PlatformVideo({
         id: new PlatformID(PLATFORM, String(video.id), config.id),
         name: video.title,
-        thumbnails: new Thumbnails([new Thumbnail(video.thumbnails["16_9"].large, 0)]),
+        thumbnails: new Thumbnails([new Thumbnail(video.thumbnails["16_9"].medium, 0)]),
         author: new PlatformAuthorLink(
             new PlatformID(PLATFORM, String(video.metadata?.series?.id), config.id),
-            video.metadata?.series?.name || "Trilogy Plus",
+            video.metadata?.series?.name || PLATFORM,
             channel?.page_url || URL_PLATFORM,
-            channel?.thumbnails?.["16_9"].large || ICON_TRILOGYPLUS
+            channel?.thumbnails?.["16_9"]?.medium || ICON_TRILOGYPLUS
         ),
         datetime: parseInt((new Date(video.created_at)).getTime() / 1000),
-        duration: video.duration.seconds,
+        duration: video.duration?.seconds,
         viewCount: null,
         url: video.page_url,
         shareUrl: video.page_url,
-        isLive: false
+        isLive: video.live_video
     });
+};
+
+function getPlaylistVideos(id, page, bearer = getBearer()) {
+    const playlistVideos = getCollectionVideos(id, bearer, page);
+    const results = [];
+
+    for (const v of Object.values(playlistVideos.items)) {
+        const video = v.entity;
+        const channel = video.metadata.series.id !== null && getCollectionDetails(video.metadata.series.id, bearer);
+
+        results.push(new PlatformVideo({
+            id: new PlatformID(PLATFORM, String(video.id), config.id),
+            name: video.title,
+			thumbnails: new Thumbnails([new Thumbnail(video.thumbnails["16_9"].large, 0)]),
+			author: new PlatformAuthorLink(
+				new PlatformID(PLATFORM, video.metadata.series.id, config.id),
+				video.metadata.series.name || PLATFORM,
+				channel.page_url || URL_PLATFORM,
+				channel.thumbnails?.["1_1"]?.medium || ICON_TRILOGYPLUS
+			),
+			datetime: Math.round((new Date(video.created_at)).getTime() / 1000),
+			duration: video.duration.seconds,
+			viewCount: null,
+			url: video.page_url,
+			isLive: video.live_video
+		}));
+    };
+
+    return {videos: results, pagination: playlistVideos.pagination};
 };
 
 function getHomeResults(page, excludeCategorized = false, html)  {
     const collectionId = excludeCategorized && 1 || settings.homeFeedSource;
     const bearer = getBearer(html);
-    const homeResp = http.GET(API_COLLECTIONS_VIDEOS.replace('ID', collections[collectionId]), { 
-            Authorization: `Bearer ${bearer}`,
-            Accept: 'application/json',
-            Referer: URL_PLATFORM 
-        }, 
-        true
+    const homeResp = httpGET(
+        API_COLLECTIONS_VIDEOS.replace('ID', HOMEPAGE_IDS[collectionId]), 
+        true, 
+        false,
+        bearer
     );
 
     if (!homeResp.isOk) {
-        const siteResp = http.GET(URL_PLATFORM  + 'browse', {}, true);
+        const siteResp = httpGET(URL_PLATFORM  + 'browse', false, true, bearer);
         throw new CaptchaRequiredException(URL_PLATFORM + 'browse', siteResp.body);
     };
 
@@ -520,18 +530,15 @@ function getSearchResults(page, query, returnType, bearer = getBearer()) {
     // Decide which query parameter to use
     const searchType = ((returnType == 'series' || returnType == 'playlist') && 'collection') || returnType
     
-    const searchResp = http.GET(
+    const searchResp = httpGET(
         `${API_BASE}search?q=${query}&type=${searchType}&page=${page}`,
-        { 
-            Authorization: `Bearer ${bearer}`,
-            Accept: 'application/json',
-            Referer: URL_PLATFORM 
-        }, 
-        bridge.isLoggedIn()
+        true, 
+        false,
+        bearer
     );
     
     if (!searchResp.isOk) {
-        throw new ScriptException(`Search type ${searchType} failed [${searchResp.code}]`);
+        throw new ScriptException(`Search type ${searchType} failed with code [${searchResp.code}]`);
     }
 
     const responseResults = JSON.parse(searchResp.body).results
@@ -571,30 +578,28 @@ function getSearchResults(page, query, returnType, bearer = getBearer()) {
             } else if (returnType == 'playlist') {
                 results.push(getPlatformPlaylist(entity));
             } else if (returnType == 'video') {
-                const channel = entity.metadata?.series?.id !== null && getCollectionDetails(entity.metadata?.series?.id, bearer)
+                const channel = entity.metadata?.series?.id !== null && getCollectionDetails(entity.metadata?.series?.id, bearer);
 
-                results.push(new PlatformVideo({
-                    id: new PlatformID(PLATFORM, String(entity.id), config.id),
-                    name: entity.title,
-                    thumbnails: new Thumbnails([new Thumbnail(entity.thumbnails["16_9"].medium, 0)]),
-                    author: new PlatformAuthorLink(
-                        new PlatformID(PLATFORM, entity.metadata?.series?.id, config.id),
-                        entity.metadata?.series?.name || PLATFORM,
-                        channel?.page_url || URL_PLATFORM,
-                        channel?.thumbnails?.["1_1"]?.medium || ICON_TRILOGYPLUS
-                    ),
-                    datetime: Math.round((new Date(entity.created_at)).getTime() / 1000),
-                    duration: entity.duration?.seconds,
-                    viewCount: null,
-                    url: entity.page_url,
-                    isLive: entity.live_video
-                }));
+                results.push(getPlatformVideo(entity, channel));
             };
         };
     };
 
     return results;
-}
+};
+
+// Helper: Make HTTP requests
+function httpGET(url, useMethod, useAuth, bearer = getBearer()) {
+    const method = useMethod && { 
+            Authorization: `Bearer ${bearer}`,
+            Accept: 'application/json',
+            Referer: URL_PLATFORM 
+        } || {};
+    
+    const response = http.GET(url, method, useAuth);
+
+    return response;
+};
 
 // Helper: Generate image for miscellaneous avatars in comments
 function generateAvatar(name) {
@@ -637,40 +642,26 @@ function getVideoDetails(url, bearer = getBearer()) {
 }
 
 function getCollectionDetails(id, bearer = getBearer()) {
-    const channelDetailsResp = http.GET(
-        API_COLLECTIONS + id,
-        { 
-            Authorization: `Bearer ${bearer}`,
-            Accept: 'application/json',
-            Referer: URL_PLATFORM 
-        }, 
-        false
-    );
+    const channelDetailsResp = httpGET(URLS.APIS.COLLECTIONS + id, true, false, bearer);
 
     if (!channelDetailsResp.isOk) {
-        throw new ScriptException(`Failed to retrieve details for collection ID ${id} [${channelDetailsResp.code}]`)
+        throw new ScriptException(`Failed to retrieve details for collection ID ${id} [${channelDetailsResp.code}]`);
     };
 
     return JSON.parse(channelDetailsResp.body);
-}
+};
 
-function getCollectionVideos(id, bearer) {
-    const videosResp = http.GET(
-        API_COLLECTIONS_VIDEOS.replace('ID', id), 
-        { 
-            Authorization: `Bearer ${bearer}`,
-            Accept: 'application/json',
-            Referer: URL_PLATFORM 
-        }, 
-        true
-    );
+function getCollectionVideos(id, bearer, page) {
+    let url = URLS.APIS.COLLECTIONS + id + '/items?sort=release_date';
+    url = page && url + '&page=' + page || url;
+    const videosResp = httpGET(url, true, false, bearer);
     
     if (!videosResp.isOk)  {
-        throw new ScriptException(`Failed to retrieve videos for collection ID ${id} [${videosResp.code}]`)
+        throw new ScriptException(`Failed to retrieve videos for collection ${url} [${videosResp.code}]`);
     };
 
     return JSON.parse(videosResp.body);
-}
+};
 
 // Helper: Extract detail using regex
 function extractDetail(html, regex) {
@@ -685,15 +676,14 @@ function extractDetail(html, regex) {
 
 // Helper: Extract series ID from URL
 function getSeriesId(url) {
-    const seriesResp = http.GET(url, {}, false);
+    const seriesResp = httpGET(url, false, false, null);
 
     if (!seriesResp.isOk) {
         throw new ScriptException(`Failed to get id from series ${url} [${seriesResp.code}]`);
     };
 
     return extractDetail(seriesResp.body, REGEX_CHANNEL_ID);
-}
-
+};
 
 class SomeCommentPager extends CommentPager {
     constructor(results, hasMore, context) {
@@ -750,18 +740,23 @@ class SomeSearchPlaylistsPager extends VideoPager {
 }
 
 class PlaylistContentsPager extends VideoPager {
-    constructor(initialResults, hasMore) {
-		super(initialResults, hasMore);
-        this.page = 0;
-	}
-	
-	nextPage() {
+    constructor(initialResults, hasMore, context) {
+        super(initialResults, hasMore, context);
+        this.page = 1;
+    };
+
+    async nextPage() {
         this.page++;
-        this.results = (this.page);
-        this.hasMore = true;
-		return this;
-	}
-}
+        this.hasMore = ((this.page * this.context.perPage ) < this.context.pages);
+        if (this.hasMore) {
+            const nextPageVideos = getPlaylistVideos(this.context.playlistId, this.page, this.context.bearer);
+            this.results = nextPageVideos.videos;
+            // Do logic to check if there are any more pages after this one (boolean)
+            bridge.log(String(nextPageVideos.pagination.page * nextPageVideos.pagination.per_page));
+        };
+        return this;
+    };
+};
 
 class SomeChannelPager extends ChannelPager {
 	constructor(results, hasMore, context) {
