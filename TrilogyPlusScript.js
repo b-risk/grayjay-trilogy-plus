@@ -13,6 +13,7 @@ const URLS = {
     ICON: 'https://dr56wvhu2c8zo.cloudfront.net/trilogyplus/assets/739ad5e0-ee07-4677-ac2b-c0c5ab40adb3.png',
     APIS: {
         UI_AVATARS: 'https://ui-avatars.com/api/?color=fffffff&bold=true&format=png&size=128&length=1&background=random&name=',
+        HUBS: 'https://api.vhx.tv/hubs/1339808?product=https://api.vhx.tv/products/122755&per_page=10&page=',
         COLLECTIONS: API_BASE + 'collections/',
         COMMENTS: API + 'comments/'
     }
@@ -159,17 +160,18 @@ source.getChannel = function(url) {
 }
 
 source.getChannelContents = function(url, type, order, filters, continuationToken) {
-    const hasMore = false; // Are there more pages?
-    const context = { url: url, query: null, type: type, order: order, filters: filters, continuationToken: continuationToken }; // Relevant data for the next page
+    let hasMore = false; // Are there more pages?
+    let context = { url: url, query: null, type: type, order: order, filters: filters, continuationToken: continuationToken }; // Relevant data for the next page
     
+
     // Check if channel is uncategorized (not part of any series,) then return the uncategorized videos
     if (url == URL_PLATFORM ) {
         return new SomeChannelVideoPager(getHomeResults(0, true), hasMore, context);
     };
-    
-    const channelResp = httpGET(url, false, false);
+
+    const bearer = getBearer();
+    const channelResp = httpGET(url, false, false, bearer);
     const id = extractDetail(channelResp.body, REGEX_CHANNEL_ID);
-    const bearer = getBearer(channelResp.body);
 
     const channel = id && getCollectionDetails(id, bearer);  
 
@@ -210,15 +212,25 @@ source.getChannelContents = function(url, type, order, filters, continuationToke
 				url: video.page_url,
 				isLive: video.live_video
 		    }));
-        }
-    }
+        };
+    };
 
     return new SomeChannelVideoPager(videos, hasMore, context);
-}
+};
+
+source.getChannelPlaylists = function(url) {
+    if (url == URLS.PLATFORM) {
+        const bearer = getBearer();
+        const collectionLists = getCollectionLists(true, 1, bearer);
+        const hasMore = true;
+        const context = { perPage: 10, count: collectionLists.count, bearer };
+        return new CollectionListsPager(collectionLists.results, hasMore, context);
+    };
+};
 
 source.isContentDetailsUrl = function(url) {
 	return REGEX.CONTENT.test(url);
-}
+};
 
 source.getContentDetails = function(url) {
     const video = getVideoDetails(url);
@@ -243,7 +255,7 @@ source.getContentDetails = function(url) {
 
     if (!sourceDetails.isOk)
         throw new ScriptException(`Failed to retrieve video details for video ID ${video.id} [${sourceDetails.code}]`);
-    bridge.log(sourceDetails.body);
+    
     const channel = video.metadata.series_id !== undefined && getCollectionDetails(video.metadata.series_id, video.bearer);
     let sources = [];
 
@@ -292,7 +304,8 @@ source.getContentDetails = function(url) {
 
 source.isPlaylistUrl = function (url) {
     if (REGEX_COLLECTION_URL.test(url)) {
-        return getCollectionDetails(getSeriesId(url)).type == 'playlist';
+        const collectionType = getCollectionDetails(getSeriesId(url)).type
+        return collectionType == 'playlist' || collectionType == 'category';
     };
 }
 
@@ -421,6 +434,9 @@ function getBearer(html) {
 };
 
 function getPlatformPlaylist(playlist) {
+    const playlistThumbnail = playlist.thumbnails?.['16_9']?.medium;
+    // Handle cases where thumbnail is nonexistant, mainly in the case of categories
+    const thumbnail = (playlistThumbnail.includes('default') || !playlistThumbnail) && ICON_TRILOGYPLUS || playlistThumbnail;
     return new PlatformPlaylist({
         id: new PlatformID(PLATFORM, playlist.id.toString(), config.id),
         author: new PlatformAuthorLink(
@@ -434,7 +450,7 @@ function getPlatformPlaylist(playlist) {
             ICON_TRILOGYPLUS
         ),
         name: playlist.title,
-        thumbnail: playlist.thumbnails?.['16_9']?.large || ICON_TRILOGYPLUS,
+        thumbnail: thumbnail || ICON_TRILOGYPLUS,
         videoCount: playlist.videos_count,
         url: playlist.page_url
     });
@@ -663,6 +679,27 @@ function getCollectionVideos(id, bearer, page) {
     return JSON.parse(videosResp.body);
 };
 
+function getCollectionLists(excludeCategorized, page, bearer = getBearer()) {
+    const collectionsResp = httpGET(URLS.APIS.HUBS + page, true, false, bearer);
+
+    if (!collectionsResp.isOk)  {
+        throw new ScriptException(`Failed to retrieve collections [${collectionsResp.code}]`);
+    };
+
+    const collections = JSON.parse(collectionsResp.body);
+
+    const results = [];
+
+    for (const collection of Object.values(collections._embedded.items)) {
+        const collectionInfo = getCollectionDetails(getSeriesId(collection._links.collection_page.href), bearer);
+        if (collectionInfo.type == 'category') {
+            results.push(getPlatformPlaylist(collectionInfo));
+        };
+    };
+
+    return {results, count: collections.total};
+};
+
 // Helper: Extract detail using regex
 function extractDetail(html, regex) {
     const match = html.match(regex);
@@ -747,13 +784,36 @@ class PlaylistContentsPager extends VideoPager {
 
     async nextPage() {
         this.page++;
+        // Do logic to check if there are any more pages after this one (boolean)
         this.hasMore = ((this.page * this.context.perPage ) < this.context.pages);
         if (this.hasMore) {
             const nextPageVideos = getPlaylistVideos(this.context.playlistId, this.page, this.context.bearer);
             this.results = nextPageVideos.videos;
-            // Do logic to check if there are any more pages after this one (boolean)
-            bridge.log(String(nextPageVideos.pagination.page * nextPageVideos.pagination.per_page));
         };
+        return this;
+    };
+};
+
+class CollectionListsPager extends VideoPager {
+    constructor(initialResults, hasMore, context) {
+        super(initialResults, hasMore, context);
+        this.page = 1;
+        this.resultsLeft = this.context.count;
+    };
+
+    async nextPage() {
+        this.page++;
+
+        // Do logic to check if there are any more pages after this one (boolean)
+        this.hasMore = (this.page * this.context.perPage ) < this.context.count;
+        this.resultsLeft = this.resultsLeft - this.context.perPage;
+
+        // Check if there are any more pages or there is an odd number of collections left
+        if (this.hasMore || this.context.perPage - this.resultsLeft > 0) {
+            const nextPagePlaylists = getCollectionLists(true, this.page, this.context.bearer);
+            this.results = nextPagePlaylists.results;        
+        };
+
         return this;
     };
 };

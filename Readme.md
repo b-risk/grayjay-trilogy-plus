@@ -20,6 +20,7 @@ grayjay://plugin/https://raw.githubusercontent.com/b-risk/grayjay-trilogy-plus/r
 - [x] Support series as individual channels
 - [x] Video searches
 - [x] Channel searches
+- [x] Channel playlists
 - [x] Uncategorized videos feed as channel (see the [notice](#notice))
 - [x] Alternative video formats, defaults to HLS (Progressive MP4, etc)
 - [x] Generate miscellaneous comment avatars using the [UI Avatars API](https://ui-avatars.com/) 
