@@ -4,7 +4,7 @@
   "description": "Trilogy Plus is an immersive streaming service with the best entertainment in scambaiting, scam-busting, travel and true crime.",
   "author": "Freeb",
   "authorUrl": "https://github.com/b-risk",
-  "sourceUrl": "https://raw.githubusercontent.com/b-risk/grayjay-trilogy-plus/refs/heads/main/config.json",
+  "sourceUrl": "https://raw.githubusercontent.com/b-risk/grayjay-trilogy-plus/refs/heads/main/TrilogyPlusConfig.json",
   "scriptUrl": "./TrilogyPlusScript.js",
   "repositoryUrl": "https://github.com/b-risk/grayjay-trilogy-plus",
   "version": 1,
