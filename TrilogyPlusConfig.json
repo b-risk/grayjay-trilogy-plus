@@ -27,7 +27,6 @@
     ".vimeocdn.com",
     ".imgix.net",
     ".cloudfront.net",
-    ".gravatar.com",
     "ui-avatars.com"
   ],
   "authentication": {

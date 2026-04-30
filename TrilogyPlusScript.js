@@ -13,7 +13,7 @@ const URLS = {
     ICON: 'https://dr56wvhu2c8zo.cloudfront.net/trilogyplus/assets/739ad5e0-ee07-4677-ac2b-c0c5ab40adb3.png',
     APIS: {
         UI_AVATARS: 'https://ui-avatars.com/api/?color=fffffff&bold=true&format=png&size=128&length=1&background=random&name=',
-        HUBS: 'https://api.vhx.tv/hubs/1339808?product=https://api.vhx.tv/products/122755&per_page=10&page=',
+        HUBS: 'https://api.vhx.tv/hubs/1339808?product=https://api.vhx.tv/products/122755&per_page=7&page=',
         COLLECTIONS: API_BASE + 'collections/',
         COMMENTS: API + 'comments/'
     }
@@ -243,13 +243,9 @@ source.getContentDetails = function(url) {
         throw new LoginRequiredException('Login required for premium content');
     };
 
-    const sourceDetails = http.GET(
+    const sourceDetails = httpGET(
         `https://api.vhx.tv/videos/${video.id}/files`, 
-        { 
-            Authorization: `Bearer ${video.bearer}`,
-            Accept: 'application/json',
-            Referer: URL_PLATFORM 
-        }, 
+        true, 
         true
     );
 
@@ -416,11 +412,11 @@ source.getSubComments = function (comment) {
     return new SomeCommentPager(comments, hasMore, context);
 };
 
-function getBearer(html) {
+function getBearer(useAuth, html) {
     if (html) {
         return extractDetail(html, REGEX_BEARER_TOKEN);
     } else {
-        const siteResp = http.GET(URL_PLATFORM + 'browse', {}, bridge.isLoggedIn());
+        const siteResp = http.GET(URL_PLATFORM + 'browse', {}, useAuth || false);
 
         if (!siteResp.isOk) {
             throw new ScriptException(`Failed to get bearer token [${siteResp.code}]`);
@@ -482,32 +478,33 @@ function getPlaylistVideos(id, page, bearer = getBearer()) {
 
     for (const v of Object.values(playlistVideos.items)) {
         const video = v.entity;
-        const channel = video.metadata.series.id !== null && getCollectionDetails(video.metadata.series.id, bearer);
-
-        results.push(new PlatformVideo({
-            id: new PlatformID(PLATFORM, String(video.id), config.id),
-            name: video.title,
-			thumbnails: new Thumbnails([new Thumbnail(video.thumbnails["16_9"].large, 0)]),
-			author: new PlatformAuthorLink(
-				new PlatformID(PLATFORM, video.metadata.series.id, config.id),
-				video.metadata.series.name || PLATFORM,
-				channel.page_url || URL_PLATFORM,
-				channel.thumbnails?.["1_1"]?.medium || ICON_TRILOGYPLUS
-			),
-			datetime: Math.round((new Date(video.created_at)).getTime() / 1000),
-			duration: video.duration.seconds,
-			viewCount: null,
-			url: video.page_url,
-			isLive: video.live_video
-		}));
+        const channel = video.metadata?.series?.id && getCollectionDetails(video.metadata.series.id, bearer);
+        if (video.type == 'video') {
+            results.push(new PlatformVideo({
+                id: new PlatformID(PLATFORM, String(video.id), config.id),
+                name: video.title,
+                thumbnails: new Thumbnails([new Thumbnail(video.thumbnails["16_9"].large, 0)]),
+                author: new PlatformAuthorLink(
+                    new PlatformID(PLATFORM, video.metadata?.series?.id, config.id),
+                    video.metadata?.series?.name || PLATFORM,
+                    channel?.page_url || URL_PLATFORM,
+                    channel?.thumbnails?.["1_1"]?.medium || ICON_TRILOGYPLUS
+                ),
+                datetime: Math.round((new Date(video.created_at)).getTime() / 1000),
+                duration: video.duration.seconds,
+                viewCount: null,
+                url: video.page_url,
+                isLive: video.live_video
+            }));
+        };
     };
-
+    
     return {videos: results, pagination: playlistVideos.pagination};
 };
 
 function getHomeResults(page, excludeCategorized = false, html)  {
     const collectionId = excludeCategorized && 1 || settings.homeFeedSource;
-    const bearer = getBearer(html);
+    const bearer = getBearer(false, html);
     const homeResp = httpGET(
         API_COLLECTIONS_VIDEOS.replace('ID', HOMEPAGE_IDS[collectionId]), 
         true, 
@@ -605,7 +602,7 @@ function getSearchResults(page, query, returnType, bearer = getBearer()) {
 };
 
 // Helper: Make HTTP requests
-function httpGET(url, useMethod, useAuth, bearer = getBearer()) {
+function httpGET(url, useMethod, useAuth, bearer = getBearer(true)) {
     const method = useMethod && { 
             Authorization: `Bearer ${bearer}`,
             Accept: 'application/json',
