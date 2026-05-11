@@ -1,6 +1,6 @@
 ## Notice
 
-> The plugin treats every series as it's own channel, but there are some videos on the platform that are uncategorized and they don't provide a good endpoint to list them, so the uncategorized videos are put under a channel called "Trilogy Plus" and it grabs a few of the most recent uncategorized releases so you can still follow them. You can also click on the playlists tab to view all the non-series playlists.
+> **The plugin treats every series as it's own channel, but there are some videos on the platform that are uncategorized and they don't provide a good endpoint to list them, so the uncategorized videos are put under a channel called "Trilogy Plus" and it grabs a few of the most recent uncategorized releases so you can still follow them. You can also click on the playlists tab to view all the non-series playlists.**
 
 ### Grayjay Trilogy Plus
 This plugin adds support for the streaming service Trilogy Plus, allowing you to use it in Grayjay.
@@ -15,17 +15,18 @@ grayjay://plugin/https://raw.githubusercontent.com/b-risk/grayjay-trilogy-plus/r
 ```
 
 ### Features
-- [x] Homepage results
 - [x] Video playback & metadata
+- [x] Free videos support
+- [x] Homepage results, defaults to free videos and alternative home feeds in plugin settings
 - [x] Support series as individual channels
 - [x] Video searches
+- [x] Channel (series) support
 - [x] Channel searches
 - [x] Uncategorized videos & playlists feed as channel (see the [notice](#notice))
 - [x] Alternative video formats, defaults to HLS (Progressive MP4, etc)
 - [x] Generate miscellaneous comment avatars using the [UI Avatars API](https://ui-avatars.com/) 
 - [x] Playlists search & support (non-series collections)
 - [x] Comments support
-- [x] All home pages support (Free Videos, New Releases, Popular, etc)
 - [ ] Comment replies support
 - [ ] Import "My List" as playlist
 - [ ] Sign plugin
