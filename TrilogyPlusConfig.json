@@ -7,7 +7,7 @@
   "sourceUrl": "https://raw.githubusercontent.com/b-risk/grayjay-trilogy-plus/refs/heads/main/TrilogyPlusConfig.json",
   "scriptUrl": "./TrilogyPlusScript.js",
   "repositoryUrl": "https://github.com/b-risk/grayjay-trilogy-plus",
-  "version": 1,
+  "version": 2,
   "iconUrl": "./TrilogyPlusIcon.png",
   "id": "ca4747c0-7fff-4909-a448-545f54e7f8ee",
   "scriptSignature": "",
@@ -69,5 +69,10 @@
 				"Popular"
 			]
     }
-  ]
+  ],
+  "changelog": {
+    "2": [
+      "Added support for free videos, default page"
+    ]
+  }
 }

@@ -12,15 +12,12 @@ const URLS = {
     PLATFORM: 'https://www.trilogyplus.com/',
     ICON: 'https://dr56wvhu2c8zo.cloudfront.net/trilogyplus/assets/739ad5e0-ee07-4677-ac2b-c0c5ab40adb3.png',
     APIS: {
-        UI_AVATARS: 'https://ui-avatars.com/api/?color=fffffff&bold=true&format=png&size=128&length=1&background=random&name=',
+        UI_AVATARS: 'https://ui-avatars.com/api/?color=ffffff&bold=true&format=png&size=128&length=1&background=',
         HUBS: 'https://api.vhx.tv/hubs/1339808?product=https://api.vhx.tv/products/122755&per_page=7&page=',
         COLLECTIONS: API_BASE + 'collections/',
         COMMENTS: API + 'comments/'
     }
 };
-const API_COLLECTIONS = API_BASE + 'collections/' // Redundant, removing soon
-const API_COLLECTIONS_VIDEOS = API_COLLECTIONS + 'ID/items' // Redundant, removing soon
-const API_UI_AVATARS = 'https://ui-avatars.com/api/?color=fffffff&bold=true&format=png&size=128&length=1&background=random&name=' // Redundant, removing soon
 
 const HOMEPAGE_IDS = [
     1067129, // Free Videos
@@ -34,7 +31,8 @@ const REGEX = {
     COLLECTION: /^https:\/\/(?:www\.)?trilogyplus\.com\/[^\/]+$/,
     CHANNEL_ID: /"COLLECTION_ID":"?([^",]+)"?,"COLLECTION_TITLE"/,
     VIDEO_ID: /"video","VIDEO_ID":(\d+)/,
-    BEARER_TOKEN: /window\.TOKEN\s*=\s*"([^"]+)";/m
+    BEARER_TOKEN: /window\.TOKEN\s*=\s*"([^"]+)";/m,
+    USER_HAS_SUB: /user_has_subscription:\s*"(\w+)"\s*,/
 };
 const REGEX_COLLECTION_URL = /^https:\/\/(?:www\.)?trilogyplus\.com\/[^\/]+$/; // Redundant, removing soon
 const REGEX_CHANNEL_ID = /"COLLECTION_ID":"?([^",]+)"?,"COLLECTION_TITLE"/; // Redundant, removing soon
@@ -114,23 +112,10 @@ source.getSearchChannelContentsCapabilities = function () {
 }
 
 source.searchChannelContents = function (url, query, type, order, filters, continuationToken) {
-    /**
-     * @param url: string
-     * @param query: string
-     * @param type: string
-     * @param order: string
-     * @param filters: Map<string, Array<string>>
-     * @param continuationToken: any?
-     * @returns: VideoPager
-     */
-
-    const videos = []; // The results (PlatformVideo)
-    const hasMore = false; // Are there more pages?
-    const context = { channelUrl: channelUrl, query: query, type: type, order: order, filters: filters, continuationToken: continuationToken }; // Relevant data for the next page
-    return new SomeSearchChannelVideoPager(videos, hasMore, context);
+    return getChannelVideosPager(url, type, order, filters, continuationToken, query);
 }
 
-source.searchChannels = function (query, continuationToken) { // Needs to be improvd, currently returns all channels on the platform even if not relevent
+source.searchChannels = function (query, continuationToken) {
     const hasMore = false;
     const context = { query: query, continuationToken: continuationToken }; // Relevant data for the next page
     return new SomeChannelPager(getSearchResults(1, query, 'series'), hasMore, context);
@@ -145,7 +130,7 @@ source.isChannelUrl = function(url) {
 }
 
 source.getChannel = function(url) {
-    const channel = (url !== URL_PLATFORM) && getCollectionDetails(getSeriesId(url), getBearer());
+    const channel = (url !== URL_PLATFORM) && getCollectionDetails(getSeriesId(url), false, getBearer());
 
 	return new PlatformChannel({
         id: new PlatformID(PLATFORM, String(channel?.id), config.id),
@@ -160,62 +145,7 @@ source.getChannel = function(url) {
 }
 
 source.getChannelContents = function(url, type, order, filters, continuationToken) {
-    let hasMore = false; // Are there more pages?
-    let context = { url: url, query: null, type: type, order: order, filters: filters, continuationToken: continuationToken }; // Relevant data for the next page
-    
-
-    // Check if channel is uncategorized (not part of any series,) then return the uncategorized videos
-    if (url == URL_PLATFORM ) {
-        return new SomeChannelVideoPager(getHomeResults(0, true), hasMore, context);
-    };
-
-    const bearer = getBearer();
-    const channelResp = httpGET(url, false, false, bearer);
-    const id = extractDetail(channelResp.body, REGEX_CHANNEL_ID);
-
-    const channel = id && getCollectionDetails(id, bearer);  
-
-    const seasonsResp = httpGET(`${API_COLLECTIONS}${id}/items`, true, false, bearer);
-
-    if (!seasonsResp.isOk) {
-        throw new ScriptException(`Failed to retrieve series seasons [${seasonsResp.code}]`);
-    };
-
-    // Seasons, in reverse order from newest to oldest
-    const seasons = JSON.parse(seasonsResp.body).items.reverse()
-
-    let videos = []; // The results (PlatformVideo)
-
-    for (const season of Object.values(seasons)) {
-        const seasonResp = httpGET(`${API_COLLECTIONS}${season.entity.id}/items`, true, false, bearer);
-    
-        if (!seasonResp.isOk) 
-            throw new ScriptException(`Failed to retrieve channel season details [${seasonResp.code}]`)
-
-        const channelVideos = JSON.parse(seasonResp.body).items.reverse(); // Videos, in reverse order from newest to oldest
-        
-        for (const v of Object.values(channelVideos)) {
-            const video = v.entity;
-            videos.push(new PlatformVideo({
-                id: new PlatformID(PLATFORM, String(video.id), config.id),
-                name: video.title,
-				thumbnails: new Thumbnails([new Thumbnail(video.thumbnails["16_9"].large, 0)]),
-				author: new PlatformAuthorLink(
-					new PlatformID(PLATFORM, video.metadata.series.id, config.id),
-					video.metadata.series.name,
-					url,
-					channel.thumbnails["1_1"].medium
-				),
-				datetime: Math.round((new Date(video.created_at)).getTime() / 1000),
-				duration: video.duration.seconds,
-				viewCount: null,
-				url: video.page_url,
-				isLive: video.live_video
-		    }));
-        };
-    };
-
-    return new SomeChannelVideoPager(videos, hasMore, context);
+    return getChannelVideosPager(url, type, order, filters, continuationToken);
 };
 
 source.getChannelPlaylists = function(url) {
@@ -233,26 +163,28 @@ source.isContentDetailsUrl = function(url) {
 };
 
 source.getContentDetails = function(url) {
-    const video = getVideoDetails(url);
+    const userAuth = bridge.isLoggedIn();
 
-    const userHasSub = true;
-
-    if (!bridge.isLoggedIn()) {
+    if (!userAuth) 
         throw new LoginRequiredException('Login required for Trilogy Plus content');
-    } else if (!userHasSub && !video.is_free) {
-        throw new LoginRequiredException('Login required for premium content');
-    };
+
+    const bearer = getBearer(userAuth);
+    const video = getVideoDetails(url, bearer);
+    
+    if (video.user_has_sub == 'false' && !video.is_free)
+        throw new ScriptException('Subscription required for premium content');
 
     const sourceDetails = httpGET(
         `https://api.vhx.tv/videos/${video.id}/files`, 
         true, 
-        true
+        true,
+        bearer
     );
 
     if (!sourceDetails.isOk)
         throw new ScriptException(`Failed to retrieve video details for video ID ${video.id} [${sourceDetails.code}]`);
     
-    const channel = video.metadata.series_id !== undefined && getCollectionDetails(video.metadata.series_id, video.bearer);
+    const channel = video.metadata.series_id !== undefined && getCollectionDetails(video.metadata.series_id, userAuth, bearer);
     let sources = [];
 
     // Loop through video sources
@@ -343,9 +275,10 @@ source.searchPlaylists = function (query, type, order, filters, continuationToke
 }
 
 source.getComments = function (url, continuationToken) {
-    const video = getVideoDetails(url);
+    const bearer = getBearer(bridge.isLoggedIn())
+    const video = getVideoDetails(url, bearer);
     
-    const commentsResp = httpGET(video._links.comments.href, true, false, video.bearer);
+    const commentsResp = httpGET(video._links.comments.href, true, false, bearer);
 
     if (!commentsResp.isOk)
         throw new ScriptException(`Failed to retrieve comments [${commentsResp.code}]`);
@@ -356,29 +289,49 @@ source.getComments = function (url, continuationToken) {
 			contextUrl: url,
 			author: new PlatformAuthorLink(
                 new PlatformID(PLATFORM, comment._embedded?.customer?.name, config.id),
-				comment._embedded?.customer?.name ?? "",
-				null,
+				comment._embedded?.customer?.name ?? "Anonymous",
+				'',
 				!comment._embedded?.customer?.thumbnail?.medium.includes('blank') 
                 && comment._embedded?.customer?.thumbnail?.medium 
-                || generateAvatar(comment._embedded?.customer?.name ?? "") 
+                || generateAvatar(comment._embedded?.customer?.name ?? "Anonymous") 
                 || ICON_TRILOGYPLUS // Handle cases if avatar doesn't exist
             ),
 			message: comment.content ?? "",
+            rating: new RatingLikes(comment.like_count ?? 0),
 			date: parseInt((new Date(comment.created_at)).getTime() / 1000),
 			replyCount: comment.comments_count,
 			context: { claimId: null, commentId: comment.id, isMembersOnly: null }
 		});
+        if (comment.comments_count > 0) {
+            source.getSubComments(c)
+        } // Redundant, debug code, remove later
 		return c;
 	}) ?? [];
 
     const hasMore = false; // Are there more pages?
     const context = { url: url, continuationToken: continuationToken }; // Relevant data for the next page
     return new SomeCommentPager(comments, hasMore, context);
-};
+}
 
 source.getSubComments = function (comment) {
+	if (typeof comment === 'string') {
+		comment = JSON.parse(comment);
+	}
+    
+    const params = {
+        count: 5,
+        offset: 0,
+        parent_id: comment.context.id,
+        sort_by: 'best',
+        child_count: comment.replyCount,
+    };
+
+    return getSubCommentsPager(comment.contextUrl, comment.context.commentId, params, 1);
+}
+
+function getSubCommentsPager(contextUrl, commentId, params, page) {
     const commentsResp = httpGET(
-        URLS.APIS.COMMENTS + comment.context.commentId,  
+        URLS.APIS.COMMENTS + commentId,  
         true,
         false
     );
@@ -387,30 +340,35 @@ source.getSubComments = function (comment) {
         throw new ScriptException(`Failed to retrieve comments [${commentsResp.code}]`);
 
     // Map comments
-	const comments = JSON.parse(commentsResp.body)._embedded.comments.map(comment => {
+	const comments = JSON.parse(commentsResp.body)._embedded.comments.map(subComment => {
 		const c = new Comment({
-			contextUrl: url,
+			contextUrl: contextUrl,
 			author: new PlatformAuthorLink(
-                new PlatformID(PLATFORM, comment._embedded?.customer?.name, config.id),
-				comment._embedded?.customer?.name ?? "",
+                new PlatformID(PLATFORM, subComment._embedded?.customer?.name, config.id),
+				subComment._embedded?.customer?.name ?? "",
 				null,
-				!comment._embedded?.customer?.thumbnail?.medium.includes('blank') 
-                && comment._embedded?.customer?.thumbnail?.medium 
-                || generateAvatar(comment._embedded?.customer?.name ?? "") 
+				!subComment._embedded?.customer?.thumbnail?.medium.includes('blank') 
+                && subComment._embedded?.customer?.thumbnail?.medium 
+                || generateAvatar(subComment._embedded?.customer?.name ?? "") 
                 || ICON_TRILOGYPLUS // Handle cases if avatar doesn't exist
             ),
-			message: comment.content ?? "",
-			date: parseInt((new Date(comment.created_at)).getTime() / 1000),
-			replyCount: comment.comments_count,
-			context: { claimId: null, commentId: comment.id, isMembersOnly: null }
+			message: subComment.content ?? "",
+            rating: new RatingLikes(subComment.like_count ?? 0),
+			date: parseInt((new Date(subComment.created_at)).getTime() / 1000),
+			replyCount: subComment.comments_count,
+			context: {id: subComment.id}
 		});
 		return c;
 	}) ?? [];
-
-    const hasMore = false; // Are there more pages?
-    const context = { url: url, continuationToken: continuationToken }; // Relevant data for the next page
-    return new SomeCommentPager(comments, hasMore, context);
-};
+    
+    return new PlatformCommentPager(
+      comments,
+      false,
+      contextUrl,
+      params,
+      1,
+    );
+}
 
 function getBearer(useAuth, html) {
     if (html) {
@@ -427,7 +385,7 @@ function getBearer(useAuth, html) {
         };
         return bearer;
     };
-};
+}
 
 function getPlatformPlaylist(playlist) {
     const playlistThumbnail = playlist.thumbnails?.['16_9']?.medium;
@@ -450,7 +408,7 @@ function getPlatformPlaylist(playlist) {
         videoCount: playlist.videos_count,
         url: playlist.page_url
     });
-};
+}
 
 function getPlatformVideo(video, channel) {
     return new PlatformVideo({
@@ -470,7 +428,7 @@ function getPlatformVideo(video, channel) {
         shareUrl: video.page_url,
         isLive: video.live_video
     });
-};
+}
 
 function getPlaylistVideos(id, page, bearer = getBearer()) {
     const playlistVideos = getCollectionVideos(id, bearer, page);
@@ -478,7 +436,7 @@ function getPlaylistVideos(id, page, bearer = getBearer()) {
 
     for (const v of Object.values(playlistVideos.items)) {
         const video = v.entity;
-        const channel = video.metadata?.series?.id && getCollectionDetails(video.metadata.series.id, bearer);
+        const channel = video.metadata?.series?.id && getCollectionDetails(video.metadata.series.id, false, bearer);
         if (video.type == 'video') {
             results.push(new PlatformVideo({
                 id: new PlatformID(PLATFORM, String(video.id), config.id),
@@ -500,13 +458,13 @@ function getPlaylistVideos(id, page, bearer = getBearer()) {
     };
     
     return {videos: results, pagination: playlistVideos.pagination};
-};
+}
 
-function getHomeResults(page, excludeCategorized = false, html)  {
+function getHomeResults(page, excludeCategorized = false, query)  {
     const collectionId = excludeCategorized && 1 || settings.homeFeedSource;
-    const bearer = getBearer(false, html);
+    const bearer = getBearer();
     const homeResp = httpGET(
-        API_COLLECTIONS_VIDEOS.replace('ID', HOMEPAGE_IDS[collectionId]), 
+        URLS.APIS.COLLECTIONS + HOMEPAGE_IDS[collectionId] + '/items', 
         true, 
         false,
         bearer
@@ -523,25 +481,77 @@ function getHomeResults(page, excludeCategorized = false, html)  {
         const entity = e.entity;
 
         // Exclude series (channels) from home results
-        if (entity.type == 'series' ) {
+        if ( entity.type == 'series' ) {
             continue;
-        } 
-        const channel = entity.metadata?.series?.id !== null && getCollectionDetails(entity.metadata?.series?.id, bearer)
+        };
+
+        const channel = entity.metadata?.series?.id !== null && getCollectionDetails(entity.metadata?.series?.id, false, bearer)
 
         // Exclude videos that are a part of a series (for the uncategorized channel)
         if (excludeCategorized && channel) {
             continue;
         };
 
-        results.push(getPlatformVideo(entity, channel));
+        // Check if it matches the query (for channel search)
+        if (query && entity.title.toLowerCase().includes(query.toLowerCase()) || !query) {
+            results.push(getPlatformVideo(entity, channel));
+        };
     };
 
     return results;
 }
 
-function getSearchResults(page, query, returnType, bearer = getBearer()) {
+function getChannelVideosPager(url, type, order, filters, continuationToken, query) {
+    let hasMore = false; // Are there more pages?
+    let context = { url: url, query: null, type: type, order: order, filters: filters, continuationToken: continuationToken }; // Relevant data for the next page
+    
+
+    // Check if channel is uncategorized (not part of any series,) then return the uncategorized videos
+    if (url == URL_PLATFORM ) {
+        return new SomeChannelVideoPager(getHomeResults(0, true, query), hasMore, context);
+    };
+
+    const bearer = getBearer();
+    const channelResp = httpGET(url, false, false, bearer);
+    const id = extractDetail(channelResp.body, REGEX_CHANNEL_ID);
+
+    const channel = id && getCollectionDetails(id, false, bearer);  
+
+    const seasonsResp = httpGET(`${URLS.APIS.COLLECTIONS}${id}/items`, true, false, bearer);
+
+    if (!seasonsResp.isOk) {
+        throw new ScriptException(`Failed to retrieve series seasons [${seasonsResp.code}]`);
+    };
+
+    // Seasons, in reverse order from newest to oldest
+    const seasons = JSON.parse(seasonsResp.body).items.reverse()
+
+    let videos = []; // The results (PlatformVideo)
+
+    for (const season of Object.values(seasons)) {
+        const seasonResp = httpGET(`${URLS.APIS.COLLECTIONS}${season.entity.id}/items`, true, false, bearer);
+    
+        if (!seasonResp.isOk) 
+            throw new ScriptException(`Failed to retrieve channel season details [${seasonResp.code}]`)
+
+        const channelVideos = JSON.parse(seasonResp.body).items.reverse(); // Videos, in reverse order from newest to oldest
+        
+        for (const v of Object.values(channelVideos)) {
+            const video = v.entity;
+            if (query && video.title.toLowerCase().includes(query.toLowerCase()) || !query) {
+                videos.push(getPlatformVideo(video, channel));
+            };
+        };
+    };
+
+    return new SomeChannelVideoPager(videos, hasMore, context);
+}
+
+function getSearchResults(page, query, returnType) {
     // Decide which query parameter to use
     const searchType = ((returnType == 'series' || returnType == 'playlist') && 'collection') || returnType
+
+    const bearer = getBearer()
     
     const searchResp = httpGET(
         `${API_BASE}search?q=${query}&type=${searchType}&page=${page}`,
@@ -591,7 +601,7 @@ function getSearchResults(page, query, returnType, bearer = getBearer()) {
             } else if (returnType == 'playlist') {
                 results.push(getPlatformPlaylist(entity));
             } else if (returnType == 'video') {
-                const channel = entity.metadata?.series?.id !== null && getCollectionDetails(entity.metadata?.series?.id, bearer);
+                const channel = entity.metadata?.series?.id !== null && getCollectionDetails(entity.metadata?.series?.id, false, bearer);
 
                 results.push(getPlatformVideo(entity, channel));
             };
@@ -602,7 +612,7 @@ function getSearchResults(page, query, returnType, bearer = getBearer()) {
 };
 
 // Helper: Make HTTP requests
-function httpGET(url, useMethod, useAuth, bearer = getBearer(true)) {
+function httpGET(url, useMethod, useAuth, bearer = getBearer()) {
     const method = useMethod && { 
             Authorization: `Bearer ${bearer}`,
             Accept: 'application/json',
@@ -612,22 +622,30 @@ function httpGET(url, useMethod, useAuth, bearer = getBearer(true)) {
     const response = http.GET(url, method, useAuth);
 
     return response;
-};
+}
+
+// Helper: Convert string to hex color for avatar backgrounds
+function stringToHexColor(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    // Convert hash to a 6-digit hex string
+    const color = (hash & 0x00FFFFFF).toString(16).padStart(6, '0');
+    return color;
+}
 
 // Helper: Generate image for miscellaneous avatars in comments
 function generateAvatar(name) {
-    return API_UI_AVATARS + name.replace(/ /g, '+');
-};
+    return `${URLS.APIS.UI_AVATARS}${stringToHexColor(name)}&name=${name.replace(/ /g, '+')}}`;
+}
 
 // Helper: Get video details from given url
-function getVideoDetails(url, bearer = getBearer()) {
-    const videoResp = http.GET(
+function getVideoDetails(url, bearer) {
+    const videoResp = httpGET(
         url, 
-        { 
-            Authorization: `Bearer ${bearer}`,
-            Referer: URL_PLATFORM 
-        }, 
-        true
+        false, 
+        false
     );
     
     if (!videoResp.isOk) 
@@ -635,27 +653,24 @@ function getVideoDetails(url, bearer = getBearer()) {
     
     const id = extractDetail(videoResp.body, REGEX_VIDEO_ID);
 
-    const videoDetailsResp = http.GET(
+    const videoDetailsResp = httpGET(
         `https://api.vhx.tv/videos/${id}`, 
-        { 
-            Authorization: `Bearer ${bearer}`,
-            Accept: 'application/json',
-            Referer: URL_PLATFORM 
-        }, 
-        true
+        true, 
+        false,
+        bearer
     );
 
     if (!videoDetailsResp.isOk)
         throw new ScriptException(`Failed to retrieve video details [${videoDetailsResp.code}]`);
 
-    const details = JSON.parse(videoDetailsResp.body)
+    const details = JSON.parse(videoDetailsResp.body);
 
-    details.bearer = bearer
-    return details
+    details.user_has_sub = videoResp.body.match(REGEX.USER_HAS_SUB);
+    return details;
 }
 
-function getCollectionDetails(id, bearer = getBearer()) {
-    const channelDetailsResp = httpGET(URLS.APIS.COLLECTIONS + id, true, false, bearer);
+function getCollectionDetails(id, userAuth, bearer) {
+    const channelDetailsResp = httpGET(URLS.APIS.COLLECTIONS + id, true, userAuth, bearer);
 
     if (!channelDetailsResp.isOk) {
         throw new ScriptException(`Failed to retrieve details for collection ID ${id} [${channelDetailsResp.code}]`);
@@ -688,7 +703,7 @@ function getCollectionLists(excludeCategorized, page, bearer = getBearer()) {
     const results = [];
 
     for (const collection of Object.values(collections._embedded.items)) {
-        const collectionInfo = getCollectionDetails(getSeriesId(collection._links.collection_page.href), bearer);
+        const collectionInfo = getCollectionDetails(getSeriesId(collection._links.collection_page.href), false, bearer);
         if (collectionInfo.type == 'category') {
             results.push(getPlatformPlaylist(collectionInfo));
         };
@@ -710,7 +725,7 @@ function extractDetail(html, regex) {
 
 // Helper: Extract series ID from URL
 function getSeriesId(url) {
-    const seriesResp = httpGET(url, false, false, null);
+    const seriesResp = httpGET(url, false, false);
 
     if (!seriesResp.isOk) {
         throw new ScriptException(`Failed to get id from series ${url} [${seriesResp.code}]`);
@@ -728,6 +743,21 @@ class SomeCommentPager extends CommentPager {
         return source.getComments(this.context.url, this.context.continuationToken);
     }
 }
+
+class PlatformCommentPager extends CommentPager {
+  constructor(results, hasMore, path, params, page) {
+    super(results, hasMore, { path, params, page });
+  }
+
+  nextPage() {
+    return getSubCommentsPager(
+      this.context.path,
+      this.context.params,
+      (this.context.page ?? 0) + 1,
+    );
+  }
+}
+
 
 class HomePager extends VideoPager {
 	constructor(initialResults, hasMore) {
