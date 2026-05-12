@@ -73,6 +73,12 @@
   "changelog": {
     "2": [
       "Added support for free videos, default page"
+    ],
+    "3": [
+      "Added sub comments support",
+      "Added support for importing watchlist",
+      "Code efficiency improvements",
+      "Fixed logic for free videos support"
     ]
   }
 }
