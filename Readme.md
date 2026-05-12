@@ -29,7 +29,7 @@ grayjay://plugin/https://raw.githubusercontent.com/b-risk/grayjay-trilogy-plus/r
 - [x] Comments support
 - [x] Comment replies support
 - [x] Import "My List" as playlist
-- [ ] Sign plugin
+- [x] Sign plugin
 
 
 ### Contributions
@@ -47,5 +47,5 @@ ssh-keygen -t rsa -b 2048 -m PEM -f ./private-key.pem
 export SIGNING_PRIVATE_KEY="$(base64 -w 0 ./private-key.pem)"
 
 # Run the sign script:
-sh ./sign-script.sh "{SCRIPT_FILE_PATH}" "{CONFIG_FILE_PATH}"
+sh ./sign-script.sh ./TrilogyPlusScript.js ./TrilogyPlusConfig.json
 ```

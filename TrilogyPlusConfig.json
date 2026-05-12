@@ -10,8 +10,8 @@
   "version": 2,
   "iconUrl": "./TrilogyPlusIcon.png",
   "id": "ca4747c0-7fff-4909-a448-545f54e7f8ee",
-  "scriptSignature": "",
-  "scriptPublicKey": "",
+  "scriptSignature": "Ut76ZhMYn1PGKtN6ERkBXyY1ItWcxHephXxF64svtN+QEglTbggnZyORuwmW2QY1bf0q2W7uITlIqgZvcQpfaLpIUrHYhT2xaM6aD8ywaSBI6s+/YZcWaVWOnlPMV62AuMK0BKeNenIZ7S1CZh8xTO2c3c7Cr0qdiINonQtlkuDmQJZ8YfFKWiryzf0De/rv8EG6q+pVY5YpPwhMazlSe8KgHd8ivF5xj3a8VJKETsSCbSLbfZc7vzgnUfV7IHBR5/bUXzAJ+oBFNn+GjNBtjhqVkmOdq8jvpHSE5kZeNXxqn8M+AxxLAb4dGT0oI0x0Fe63GozLuhrqfgB3jajr6Q==",
+  "scriptPublicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwZvsFJWq+NS4z6Ymcsk8L4JcpbCheaQb2XKjfdz1sEEp4evgsVVFWPW1PcoF+KHwkxkoeqEyH6xwTzF083E4H1xHpt3hZzkZGlyLbFNE/zykpZ6CebuYwV0tIQeciUe4k/sASIW88COEpr4cP1L4PnpsQVgBYHbSDWC8184TZn4a2aBokmuEuOAIp1S3j9SDV2bxwv8i20E62ziybn9LpKQqrXf1wzXw90ZQWMx8ew4vbYCGsJszg4L9PE1CcahRlX5yqlyduh6SWii7+MgtA5GFrKnsWSPfO4Lq6A/t1o12yaqaPyqNu9GDfGsW7LajsPTVIQsM4E6YVzMMofSs3QIDAQAB",
   "packages": [
     "Http",
     "Utilities",
@@ -43,31 +43,31 @@
   "captcha": {
     "userAgent": "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.200 Mobile Safari/537.36",
     "cookiesToFind": [
-			"_session",
+      "_session",
       "__cf_bm"
-		],
+    ],
     "headersToFind": [
       "Authorization"
     ]
   },
   "settings": [
     {
-			"variable": "homeHeader",
-			"name": "Home Feed",
-			"description": "Source for the home feed",
-			"type": "Header"
-		},
+      "variable": "homeHeader",
+      "name": "Home Feed",
+      "description": "Source for the home feed",
+      "type": "Header"
+    },
     {
-			"variable": "homeFeedSource",
-			"name": "Home Feed Type",
-			"description": "Select your preferred source for the home feed",
-			"type": "Dropdown",
-			"default": "0",
-			"options": [
-				"Free Videos",
-				"New Releases",
-				"Popular"
-			]
+      "variable": "homeFeedSource",
+      "name": "Home Feed Type",
+      "description": "Select your preferred source for the home feed",
+      "type": "Dropdown",
+      "default": "0",
+      "options": [
+        "Free Videos",
+        "New Releases",
+        "Popular"
+      ]
     }
   ],
   "changelog": {
@@ -78,7 +78,8 @@
       "Added sub comments support",
       "Added support for importing watchlist",
       "Code efficiency improvements",
-      "Fixed logic for free videos support"
+      "Fixed logic for free videos support",
+      "Plugin is now signed"
     ]
   }
 }
