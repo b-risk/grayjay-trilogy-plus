@@ -1,5 +1,5 @@
 {
-  "name": "Trilogy Plus (Beta)",
+  "name": "Trilogy Plus",
   "platformUrl": "https://trilogyplus.com",
   "description": "Trilogy Plus is an immersive streaming service with the best entertainment in scambaiting, scam-busting, travel and true crime.",
   "author": "Freeb",
@@ -79,7 +79,7 @@
       "Added support for importing watchlist",
       "Code efficiency improvements",
       "Fixed logic for free videos support",
-      "Plugin is now signed"
+      "Plugin is now signed and out of beta"
     ]
   }
 }
