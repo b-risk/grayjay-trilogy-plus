@@ -1,6 +1,5 @@
-## Notice
-
-> **The plugin treats every series as it's own channel, but there are some videos on the platform that are uncategorized and they don't provide a good endpoint to list them, so the uncategorized videos are put under a channel called "Trilogy Plus" and it grabs a few of the most recent uncategorized releases so you can still follow them. You can also click on the playlists tab to view all the non-series playlists.**
+> [!NOTE]
+> The plugin treats every series as it's own channel, but there are some videos on the platform that are uncategorized and they don't provide a good endpoint to list them, so the uncategorized videos are put under a channel called "Trilogy Plus" and it grabs a few of the most recent uncategorized releases so you can still follow them. You can also click on the playlists tab to view all the non-series playlists.
 
 ### Grayjay Trilogy Plus
 This plugin adds support for the streaming service Trilogy Plus, allowing you to use it in Grayjay.
