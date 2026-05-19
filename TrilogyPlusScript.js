@@ -124,11 +124,11 @@ source.searchChannels = function (query, continuationToken) {
 
 // Detect channel URL
 source.isChannelUrl = function(url) {
-    if (url == platform.url) { // Detect dummy channel with miscellaneous videos
-        return true;
-    } else if (regex.collectionUrl.test(url)) { // Detect collection series
+    if (regex.collectionUrl.test(url)) { // Detect collection series
         return getCollectionDetails(getSeriesId(url)).type == 'series';
-    };
+    } else {
+        return url == platform.url // Detect dummy channel with miscellaneous videos
+    }
 }
 
 // Get channel details
@@ -154,7 +154,9 @@ source.getChannelPlaylists = function(url) {
         const hasMore = true;
         const context = { perPage: 10, count: collectionLists.count, bearer };
         return new CollectionListsPager(collectionLists.results, hasMore, context);
-    };
+    }
+
+    return new CollectionListsPager([], false, {});
 }
 
 // Detect video URL
@@ -245,13 +247,12 @@ source.getContentDetails = function(url) {
 
 // Detect playlist url, for TrilogyPlus non-series collections are used as playlists
 source.isPlaylistUrl = function (url) {
-    if (regex.watchlistUrl.test(url)) {
-        return true;
-    } else if (regex.collectionUrl.test(url)) {
-        const collectionType = getCollectionDetails(getSeriesId(url))?.type
-
+    if (regex.collectionUrl.test(url)) { // Detect collection URL
+        const collectionType = getCollectionDetails(getSeriesId(url))?.type;
         // Detect if collection is a playlist or home category
         return collectionType == 'playlist' || collectionType == 'category';
+    } else {
+        return regex.watchlistUrl.test(url); // Detect user's watchlist URL
     }
 }
 
@@ -295,7 +296,7 @@ source.getPlaylist = function (url, id, bearer, page = 1) {
     id = id || getSeriesId(url);
 
     // Get playlist detials and videos
-    const playlist = getCollectionDetails(id, bearer);
+    const playlist = getCollectionDetails(id, userAuth, bearer);
     const playlistVideos = getPlaylistVideos(id, page, bearer);
 
     const context = {url: url, playlistId: id, bearer: bearer, pages: playlistVideos.pagination.count, perPage: playlistVideos.pagination.per_page};
@@ -447,14 +448,13 @@ function getBearer(useAuth, html) {
         return extractDetail(html, regex.bearerToken);
     } else {
         const siteResp = http.GET(platform.url + 'browse', {}, useAuth || false);
-
-        if (!siteResp.isOk) {
+        if (!siteResp.isOk)
             throw new ScriptException(`Failed to get bearer token [${siteResp.code}]`);
-        };
+
         const bearer = extractDetail(siteResp.body, regex.bearerToken);
-        if (!bearer || typeof(bearer) !== 'string') {
+        if (!bearer || typeof(bearer) !== 'string')
             throw new ScriptException(`Bearer token not found in HTML ${siteResp.body}`);
-        };
+
         return bearer;
     };
 }
@@ -820,7 +820,7 @@ function getCollectionDetails(id, userAuth, bearer) {
     const channelDetailsResp = httpGET(api.collections + id, true, userAuth, bearer);
 
     if (!channelDetailsResp.isOk)
-        throw new ScriptException(`Failed to retrieve details for collection ID ${id} [${channelDetailsResp.code}]`);
+        throw new ScriptException(`Failed to retrieve details for collection ${id} [${channelDetailsResp.code}]`);
 
     return JSON.parse(channelDetailsResp.body);
 }
@@ -911,7 +911,7 @@ function getCollectionLists(page, bearer = getBearer()) {
     }
 
     return {results, count: collections.total};
-};
+}
 
 /**
  * Extract a detail from HTML using a regex capture group
@@ -991,7 +991,7 @@ class PlaylistContentsPager extends VideoPager {
     constructor(initialResults, hasMore, context) {
         super(initialResults, hasMore, context);
         this.page = 1;
-    };
+    }
 
     async nextPage() {
         this.page++;
@@ -1002,15 +1002,15 @@ class PlaylistContentsPager extends VideoPager {
             this.results = nextPageVideos.videos;
         };
         return this;
-    };
-};
+    }
+}
 
 class CollectionListsPager extends VideoPager {
     constructor(initialResults, hasMore, context) {
         super(initialResults, hasMore, context);
         this.page = 1;
         this.resultsLeft = this.context.count;
-    };
+    }
 
     async nextPage() {
         this.page++;
@@ -1026,8 +1026,8 @@ class CollectionListsPager extends VideoPager {
         };
 
         return this;
-    };
-};
+    }
+}
 
 class WatchlistContentsPager extends VideoPager {
     constructor(results, hasMore, context) {

@@ -80,6 +80,9 @@
       "Code efficiency improvements",
       "Fixed logic for free videos support",
       "Plugin is now signed and out of beta"
+    ],
+    "4": [
+      "Fixed silent error"
     ]
   }
 }
