@@ -7,10 +7,10 @@
   "sourceUrl": "https://raw.githubusercontent.com/b-risk/grayjay-trilogy-plus/refs/heads/main/TrilogyPlusConfig.json",
   "scriptUrl": "./TrilogyPlusScript.js",
   "repositoryUrl": "https://github.com/b-risk/grayjay-trilogy-plus",
-  "version": 3,
+  "version": 4,
   "iconUrl": "./TrilogyPlusIcon.png",
   "id": "ca4747c0-7fff-4909-a448-545f54e7f8ee",
-  "scriptSignature": "Ut76ZhMYn1PGKtN6ERkBXyY1ItWcxHephXxF64svtN+QEglTbggnZyORuwmW2QY1bf0q2W7uITlIqgZvcQpfaLpIUrHYhT2xaM6aD8ywaSBI6s+/YZcWaVWOnlPMV62AuMK0BKeNenIZ7S1CZh8xTO2c3c7Cr0qdiINonQtlkuDmQJZ8YfFKWiryzf0De/rv8EG6q+pVY5YpPwhMazlSe8KgHd8ivF5xj3a8VJKETsSCbSLbfZc7vzgnUfV7IHBR5/bUXzAJ+oBFNn+GjNBtjhqVkmOdq8jvpHSE5kZeNXxqn8M+AxxLAb4dGT0oI0x0Fe63GozLuhrqfgB3jajr6Q==",
+  "scriptSignature": "H2TiI8Hx4VFxihaa/B15F3Kdv1Nx2tixgOAwGyPrKzOjZ7q78fK6uRGk7WsWVIuS8KbFgF2DyvLJOGJWWDpMZvDaYqXSvELs3QhhLHdnXbcgkI8WjNd5dV6NIi697oK0bZdZTLvL/+GGauPAGAMMYa5aktfBa+dq1mlkqj8iZtXjA6egaQV9CLHqNUgrKOPu/C8w51EuuEzDgYOA/OZ7isO+duwVsYRnvzjnlSpRp5H0u0QWvJHI0/1J35zypxfpVNX3X9XFlWuGMYA67fni6Jq7wwh8oORL5YpVMQnjZ+iAz4LwJHq4xH4QglKljt4vjUa6bxPn0p+juBjHauHy3A==",
   "scriptPublicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwZvsFJWq+NS4z6Ymcsk8L4JcpbCheaQb2XKjfdz1sEEp4evgsVVFWPW1PcoF+KHwkxkoeqEyH6xwTzF083E4H1xHpt3hZzkZGlyLbFNE/zykpZ6CebuYwV0tIQeciUe4k/sASIW88COEpr4cP1L4PnpsQVgBYHbSDWC8184TZn4a2aBokmuEuOAIp1S3j9SDV2bxwv8i20E62ziybn9LpKQqrXf1wzXw90ZQWMx8ew4vbYCGsJszg4L9PE1CcahRlX5yqlyduh6SWii7+MgtA5GFrKnsWSPfO4Lq6A/t1o12yaqaPyqNu9GDfGsW7LajsPTVIQsM4E6YVzMMofSs3QIDAQAB",
   "packages": [
     "Http",
