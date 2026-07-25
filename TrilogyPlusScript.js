@@ -3,6 +3,7 @@ const platform = {
     title: 'Trilogy Plus',
     url: 'https://www.trilogyplus.com/',
     icon: 'https://dr56wvhu2c8zo.cloudfront.net/trilogyplus/assets/739ad5e0-ee07-4677-ac2b-c0c5ab40adb3.png',
+    banner: 'https://vhx.imgix.net/trilogyplus/assets/f3585167-d60e-4292-8096-e4bbe260b959.png?auto=format&fit=crop&w=1280',
     description: 'Trilogy Plus is an immersive streaming service with the best entertainment in scambaiting, scam-busting, travel and true crime.'
 }
 
@@ -178,19 +179,28 @@ source.getContentDetails = function(url) {
     const video = getVideoDetails(url, bearer, userAuth);
     
     // Request video sources
-    const sourceDetails = httpGET(
+    let sourcesResponse = httpGET(
         `https://api.vhx.tv/videos/${video.id}/files`, 
         true, 
         true,
         bearer
     );
 
-    if (!sourceDetails.isOk) {
-        // Detect failed request for sources, video must not be free or able to be viewed by the current user,
-        // Can't use video.is_free as it always returns false whether or not the video is actually free
-        if (sourceDetails.code == 402 || sourceDetails.code == 403)
+    // The VHX API token (window.TOKEN) has a limited lifespan (~24h).
+    // If it has expired server-side, the API returns 402/403 even though the session is
+    // still valid. Retry once with a freshly-fetched token before requiring re-login.
+    if (!sourcesResponse.isOk && (sourcesResponse.code == 402 || sourcesResponse.code == 403)) {
+        const freshBearer = getBearer(userAuth);
+        sourcesResponse = httpGET(
+            `https://api.vhx.tv/videos/${video.id}/files`, 
+            true, true, freshBearer
+        );
+    }
+
+    if (!sourcesResponse.isOk) {
+        if (sourcesResponse.code == 402 || sourcesResponse.code == 403)
             throw new LoginRequiredException('Subscription required for premium content');
-        throw new ScriptException(`Failed to retrieve video details for video ID ${video.id} [${sourceDetails.code}]`);
+        throw new ScriptException(`Failed to retrieve video details for video ID ${video.id} [${sourcesResponse.code}]`);
     }
     
     // Get channel details, returns null if not part of series and dummy channel details are used
@@ -199,7 +209,7 @@ source.getContentDetails = function(url) {
     let sources = [];
 
     // Loop through video sources
-    for (const source of Object.values(JSON.parse(sourceDetails.body))) {
+    for (const source of Object.values(JSON.parse(sourcesResponse.body))) {
         // Translate quality into width and height data
         const quality = supportedResolutions[source.quality];
 
@@ -258,9 +268,9 @@ source.isPlaylistUrl = function (url) {
 
 // Get playlist
 source.getPlaylist = function (url, id, bearer, page = 1) {
-    if (regex.watchlistUrl.test(url)) {
-        const userAuth = bridge.isLoggedIn();
+    const userAuth = bridge.isLoggedIn();
 
+    if (regex.watchlistUrl.test(url)) {
         if (!userAuth) 
             throw new LoginRequiredException('Login required to access watchlist');
 
@@ -525,7 +535,7 @@ function getPlatformChannel(channel) {
         id: new PlatformID(platform.title, channel ? String(channel.id) : null, config.id),
         name: channel?.title || platform.title,
         thumbnail,
-        banner: channel?.thumbnails?.["16_6"]?.source || thumbnail,
+        banner: channel?.thumbnails?.["16_6"]?.source || (channel ? thumbnail : platform.banner),
         subscribers: null,
         description: channel?.description || platform.description,
         url: channel?.page_url || platform.url,
@@ -540,7 +550,8 @@ function getPlatformChannel(channel) {
  * @param {string} bearer - Bearer token
  * @returns {{videos: PlatformVideo[], pagination: object}}
  */
-function getPlaylistVideos(id, page, bearer = getBearer()) {
+function getPlaylistVideos(id, page, bearer) {
+    bearer = bearer || getBearer();
     const playlistVideos = getCollectionVideos(id, bearer, page);
     const results = [];
 
@@ -746,9 +757,13 @@ function getAvatar(avatar, name) {
  * @param {string} bearer - Bearer token
  * @returns {object} HTTP response object
  */
-function httpGET(url, useMethod, useAuth, bearer = getBearer()) {
+function httpGET(url, useMethod, useAuth, bearer) {
+    // Only fetch bearer token if it will actually be used
+    if (bearer === undefined && useMethod) {
+        bearer = useAuth ? getBearer(true) : getBearer();
+    }
     const method = useMethod && { 
-            Authorization: `Bearer ${bearer}`,
+            Authorization: `Bearer ${bearer ?? ''}`,
             Accept: 'application/json',
             Referer: platform.url 
         } || {};
@@ -893,7 +908,8 @@ function getWatchlistVideos(bearer, userId, page) {
  * @param {string} bearer - Bearer token
  * @returns {{results: PlatformPlaylist[], count: number}}
  */
-function getCollectionLists(page, bearer = getBearer()) {
+function getCollectionLists(page, bearer) {
+    bearer = bearer || getBearer();
     const collectionsResp = httpGET(api.hubs + page, true, false, bearer);
 
     if (!collectionsResp.isOk)

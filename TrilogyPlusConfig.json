@@ -7,10 +7,10 @@
   "sourceUrl": "https://raw.githubusercontent.com/b-risk/grayjay-trilogy-plus/refs/heads/main/TrilogyPlusConfig.json",
   "scriptUrl": "./TrilogyPlusScript.js",
   "repositoryUrl": "https://github.com/b-risk/grayjay-trilogy-plus",
-  "version": 4,
+  "version": 5,
   "iconUrl": "./TrilogyPlusIcon.png",
   "id": "ca4747c0-7fff-4909-a448-545f54e7f8ee",
-  "scriptSignature": "H2TiI8Hx4VFxihaa/B15F3Kdv1Nx2tixgOAwGyPrKzOjZ7q78fK6uRGk7WsWVIuS8KbFgF2DyvLJOGJWWDpMZvDaYqXSvELs3QhhLHdnXbcgkI8WjNd5dV6NIi697oK0bZdZTLvL/+GGauPAGAMMYa5aktfBa+dq1mlkqj8iZtXjA6egaQV9CLHqNUgrKOPu/C8w51EuuEzDgYOA/OZ7isO+duwVsYRnvzjnlSpRp5H0u0QWvJHI0/1J35zypxfpVNX3X9XFlWuGMYA67fni6Jq7wwh8oORL5YpVMQnjZ+iAz4LwJHq4xH4QglKljt4vjUa6bxPn0p+juBjHauHy3A==",
+  "scriptSignature": "vHeudxV1JxrC/UUwHjh91qoFZBqrZnm42bvRwSqz3w6+GYvze6s2OXOrNzcsbSk3USWq4kLoBmuqJmFYd329Pto6vTDS96ptGGCu2j3pBSx995Tno9tc+MO3R9VGirSjOl7GoIRrNogCWvbj/gvldK41KsvDPWO4GWE1TDa791Zl3yuyxtvnqT2wF5vSXX3eQaoVIpO5KK3uP4sXX1fmfFxd9esQpbkufdS7CT7c7QEGtQF8+TiskWwtNLYRyfLB8Qmh3bxShjqdeZVOWL3R8G0ilq5FEeecFOXXoqTYQzW8hsiMCnxHAJvV9VGgVkN1KCCqMwH2Nqaz3oWkLSJBgg==",
   "scriptPublicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwZvsFJWq+NS4z6Ymcsk8L4JcpbCheaQb2XKjfdz1sEEp4evgsVVFWPW1PcoF+KHwkxkoeqEyH6xwTzF083E4H1xHpt3hZzkZGlyLbFNE/zykpZ6CebuYwV0tIQeciUe4k/sASIW88COEpr4cP1L4PnpsQVgBYHbSDWC8184TZn4a2aBokmuEuOAIp1S3j9SDV2bxwv8i20E62ziybn9LpKQqrXf1wzXw90ZQWMx8ew4vbYCGsJszg4L9PE1CcahRlX5yqlyduh6SWii7+MgtA5GFrKnsWSPfO4Lq6A/t1o12yaqaPyqNu9GDfGsW7LajsPTVIQsM4E6YVzMMofSs3QIDAQAB",
   "packages": [
     "Http",
@@ -38,6 +38,11 @@
     "headersToFind": [
       "Authorization"
     ],
+    "domainHeadersToFind": {
+      ".trilogyplus.com": [
+        "Authorization"
+      ]
+    },
     "userAgent": "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.230 Mobile Safari/537.36"
   },
   "captcha": {
@@ -83,6 +88,11 @@
     ],
     "4": [
       "Fixed silent error"
+    ],
+    "5": [
+      "Fixed intermittent re-login issue (retry with fresh token on auth expiry)",
+      "Scoped Authorization header to trilogyplus.com to prevent VHX API conflicts",
+      "Optimized bearer token fetching to avoid unnecessary requests"
     ]
   }
 }
