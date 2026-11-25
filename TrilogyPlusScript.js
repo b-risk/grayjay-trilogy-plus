@@ -7,12 +7,18 @@ const platform = {
     description: 'Trilogy Plus is an immersive streaming service with the best entertainment in scambaiting, scam-busting, travel and true crime.'
 }
 
+// Base URLs for the two Vimeo OTT APIs this plugin talks to
+const SITE_API_BASE = 'https://api.vhx.com/v2/sites/156301/';
+const VHX_API_BASE = 'https://api.vhx.tv/';
+
 // API endpoints
 const api = {
-    base: 'https://api.vhx.com/v2/sites/156301/',
+    base: SITE_API_BASE,
+    collections: SITE_API_BASE + 'collections/',
+    categories: SITE_API_BASE + 'categories',
     comments: 'https://api.vhx.com/comments/',
-    collections: 'https://api.vhx.com/v2/sites/156301/collections/',
-    hubs: 'https://api.vhx.tv/hubs/1339808?product=https://api.vhx.tv/products/122755&per_page=7&page=',
+    videos: VHX_API_BASE + 'videos/',
+    customers: VHX_API_BASE + 'customers/',
     uiAvatars: 'https://ui-avatars.com/api/?color=ffffff&bold=true&format=png&size=128&length=1&background='
 }
 
@@ -23,7 +29,6 @@ const regex = {
     channelId: /"COLLECTION_ID":"?([^",]+)"?,"COLLECTION_TITLE"/,
     videoId: /"video","VIDEO_ID":(\d+)/,
     bearerToken: /window\.TOKEN\s*=\s*"([^"]+)";/m,
-    userHasSub: /user_has_subscription:\s*"(\w+)"\s*,/,
     currentUserId: /window\._current_user\s*=\s*\{[\s\S]*?"id"\s*:\s*(\d+)/m,
     watchlistUrl: /^https:\/\/(?:www\.)?trilogyplus\.com\/watchlist\/?$/,
 }
@@ -31,24 +36,39 @@ const regex = {
 // Supported resolution types
 const supportedResolutions = {
     '1440p': { width: 2560, height: 1440 },
-	'1080p': { width: 1920, height: 1080 },
-	'720p': { width: 1280, height: 720 },
+    '1080p': { width: 1920, height: 1080 },
+    '720p': { width: 1280, height: 720 },
     '540p': { width: 960, height: 540 },
-	'480p': { width: 854, height: 480 },
-	'360p': { width: 640, height: 360 },
-	'240p': { width: 426, height: 240 },
-	'144p': { width: 256, height: 144 }
+    '480p': { width: 854, height: 480 },
+    '360p': { width: 640, height: 360 },
+    '240p': { width: 426, height: 240 },
+    '144p': { width: 256, height: 144 }
 }
 
 // Homepage collections
 const homepageIds = [
     1067129, // Free Videos
     1491720, // New Releases
-	1480905 // Popular
+    1480905 // Popular
 ]
+
+// Watchlist request settings
+const WATCHLIST_PRODUCT_ID = 122755;
+const WATCHLIST_PER_PAGE = 12;
+
+// Listing page sizes (the categories endpoint's own default)
+const CATEGORIES_PER_PAGE = 25;
+const SEARCH_PER_PAGE = 100;
+// How many uncategorized videos the pager serves per page
+const UNCATEGORIZED_PER_PAGE = 100;
+
+// The sorted uncategorized video lists, keyed by the search query they were built from
+let uncategorizedCache = {};
 
 let config = {};
 let settings = {};
+
+// ============================== Source lifecycle ==============================
 
 // Enable source
 source.enable = function (conf, _settings) {
@@ -56,10 +76,14 @@ source.enable = function (conf, _settings) {
     settings = _settings;
 }
 
-// Get home results
+// ============================== Home feed ==============================
+
+// Get home results (the home feed is a single page)
 source.getHome = function() {
-    return new HomePager(getHomeResults(0), false);
+    return new VideoPager(getHomeResults(), false);
 }
+
+// ============================== Search ==============================
 
 // Get search suggestions
 source.searchSuggestions = function(query) {
@@ -75,40 +99,39 @@ source.searchSuggestions = function(query) {
 // Get search capabilities
 source.getSearchCapabilities = function() {
     //This is an example of how to return search capabilities like available sorts, filters and which feed types are available (see source.js for more details) 
-	return {
-		types: [Type.Feed.Mixed],
-		sorts: [Type.Order.Chronological, "^release_time"],
-		filters: [
-			{
-				id: "date",
-				name: "Date",
-				isMultiSelect: false,
-				filters: [
-					{ id: Type.Date.Today, name: "Last 24 hours", value: "today" },
-					{ id: Type.Date.LastWeek, name: "Last week", value: "thisweek" },
-					{ id: Type.Date.LastMonth, name: "Last month", value: "thismonth" },
-					{ id: Type.Date.LastYear, name: "Last year", value: "thisyear" }
-				]
-			},
-		]
-	};
+    return {
+        types: [Type.Feed.Mixed],
+        sorts: [Type.Order.Chronological, "^release_time"],
+        filters: [
+            {
+                id: "date",
+                name: "Date",
+                isMultiSelect: false,
+                filters: [
+                    { id: Type.Date.Today, name: "Last 24 hours", value: "today" },
+                    { id: Type.Date.LastWeek, name: "Last week", value: "thisweek" },
+                    { id: Type.Date.LastMonth, name: "Last month", value: "thismonth" },
+                    { id: Type.Date.LastYear, name: "Last year", value: "thisyear" }
+                ]
+            },
+        ]
+    };
 }
 
 // Get video search results
 source.search = function (query, type, order, filters, continuationToken) {
-    const hasMore = false; // Are there more pages?
-    const context = { query: query, type: type, order: order, filters: filters, continuationToken: continuationToken }; // Relevant data for the next page
-    return new SearchResultsPager(getSearchResults(1, query, 'video'), hasMore, context);
+    const result = getSearchResults(1, query, 'video');
+    return new SearchResultsPager(result.results, result.hasMore, { query: query, page: 1 });
 }
 
 // Get capabilities for search
 source.getSearchChannelContentsCapabilities = function () {
     //This is an example of how to return search capabilities on a channel like available sorts, filters and which feed types are available (see source.js for more details)
-	return {
-		types: [Type.Feed.Mixed],
-		sorts: [Type.Order.Chronological],
-		filters: []
-	};
+    return {
+        types: [Type.Feed.Mixed],
+        sorts: [Type.Order.Chronological],
+        filters: []
+    };
 }
 
 // Search channel videos
@@ -118,15 +141,25 @@ source.searchChannelContents = function (url, query, type, order, filters, conti
 
 // Search channels
 source.searchChannels = function (query, continuationToken) {
-    const hasMore = false;
-    const context = { query: query, continuationToken: continuationToken }; // Relevant data for the next page
-    return new SearchChannelsPager(getSearchResults(1, query, 'series'), hasMore, context);
+    const result = getSearchResults(1, query, 'series');
+    return new SearchChannelsPager(result.results, result.hasMore, { query: query, page: 1 });
 }
+
+// ============================== Channels ==============================
 
 // Detect channel URL
 source.isChannelUrl = function(url) {
+    // The watchlist URL also matches collectionUrl, but is never a channel
+    if (regex.watchlistUrl.test(url))
+        return false;
+
     if (regex.collectionUrl.test(url)) { // Detect collection series
-        return getCollectionDetails(getSeriesId(url)).type == 'series';
+        // Only pages that embed a collection id can be a series
+        const id = getSeriesId(url);
+        if (id == null)
+            return false;
+
+        return getCollectionDetails(id, false).type == 'series';
     } else {
         return url == platform.url // Detect dummy channel with miscellaneous videos
     }
@@ -137,7 +170,7 @@ source.getChannel = function(url) {
     // Get channel, handles both collections and non-series dummy channel
     const channel = (url !== platform.url) && getCollectionDetails(getSeriesId(url), false, getBearer());
 
-	return getPlatformChannel(channel);
+    return getPlatformChannel(channel);
 }
 
 // Get channel videos
@@ -153,16 +186,18 @@ source.getChannelPlaylists = function(url) {
         const bearer = getBearer();
         const collectionLists = getCollectionLists(1, bearer);
         const hasMore = true;
-        const context = { perPage: 10, count: collectionLists.count, bearer };
+        const context = { perPage: CATEGORIES_PER_PAGE, count: collectionLists.count, bearer };
         return new CollectionListsPager(collectionLists.results, hasMore, context);
     }
 
     return new CollectionListsPager([], false, {});
 }
 
+// ============================== Video content ==============================
+
 // Detect video URL
 source.isContentDetailsUrl = function(url) {
-	return regex.contentUrl.test(url);
+    return regex.contentUrl.test(url);
 }
 
 // Get video details
@@ -179,12 +214,7 @@ source.getContentDetails = function(url) {
     const video = getVideoDetails(url, bearer, userAuth);
     
     // Request video sources
-    const sourceDetails = httpGET(
-        `https://api.vhx.tv/videos/${video.id}/files`, 
-        true, 
-        true,
-        bearer
-    );
+    const sourceDetails = httpGET(api.videos + video.id + '/files', true, true, bearer);
 
     if (!sourceDetails.isOk) {
         if (sourceDetails.code == 402 || sourceDetails.code == 403)
@@ -193,50 +223,56 @@ source.getContentDetails = function(url) {
     }
     
     // Get channel details, returns null if not part of series and dummy channel details are used
-    const channel = video.metadata?.series_id != null && getCollectionDetails(video.metadata.series_id, userAuth, bearer);
+    const channel = video.metadata?.series_id != null && getCollectionDetails(video.metadata?.series_id, userAuth, bearer);
     
     let sources = [];
 
     // Loop through video sources
-    for (const source of Object.values(JSON.parse(sourceDetails.body))) {
+    // NOTE: deliberately named `file` so it does not shadow the global `source` object
+    for (const file of Object.values(JSON.parse(sourceDetails.body))) {
         // Translate quality into width and height data
-        const quality = supportedResolutions[source.quality];
+        const quality = supportedResolutions[file.quality];
 
         // Detect supported video formats
-        if (source.method == "hls") {
+        if (file.method == "hls") {
             sources.push(new HLSSource({
-                name: source.quality + '/' + source.mime_type,
-                url: source._links.source.href,
+                name: file.quality + '/' + file.mime_type,
+                url: file._links.source.href,
                 priority: true
             }));
-        } else if (source.method == "progressive" && quality) {
+        } else if (file.method == "progressive" && quality) {
             sources.push(new VideoUrlSource({
                 width: quality.width,
                 height: quality.height,
-                container: source.mime_type,
-                codec: source.codec,
-                name: source.quality + '/' + source.mime_type,
-                bitrate: ( source.size.bytes * 8 ) / video.duration.seconds,
-                duration: video.duration.seconds,
-                url: source._links.source.href
+                container: file.mime_type,
+                codec: file.codec,
+                name: file.quality + '/' + file.mime_type,
+                // Files without a reported size, or a zero-length video, have no meaningful bitrate
+                bitrate: file.size?.bytes && video.duration?.seconds ? Math.round((file.size.bytes * 8) / video.duration.seconds) : 0,
+                duration: Math.round(video.duration?.seconds ?? 0),
+                url: file._links.source.href
             }));
         }
     }
-    
+
+    // A video the API knows about can still have no files this account can play
+    if (sources.length == 0)
+        throw new ScriptException(`No playable video sources found for video ID ${video.id}`);
+
     // Return video details
     return new PlatformVideoDetails({
         id: new PlatformID(platform.title, String(video.id), config.id),
         name: video.name,
         thumbnails: new Thumbnails([new Thumbnail(video.thumbnail.source, 0)]),
         author: new PlatformAuthorLink(
-            new PlatformID(platform.title, String(video?.metadata.series_id), config.id),
-            video?.metadata.series_name || "Trilogy Plus",
+            new PlatformID(platform.title, String(video?.metadata?.series_id), config.id),
+            video?.metadata?.series_name || "Trilogy Plus",
             channel?.page_url || platform.url,
             channel?.thumbnails?.["16_9"]?.large || platform.icon
         ),
         url: url,
-        uploadDate: Math.round((new Date(video.created_at)).getTime() / 1000),
-        duration: video.duration.seconds,
+        datetime: Math.round((new Date(video.created_at)).getTime() / 1000),
+        duration: video.duration?.seconds,
         viewCount: null,
         description: video.description,
         isLive: video.live_video,
@@ -244,15 +280,26 @@ source.getContentDetails = function(url) {
     });
 }
 
+// ============================== Playlists ==============================
+
 // Detect playlist url, for TrilogyPlus non-series collections are used as playlists
 source.isPlaylistUrl = function (url) {
+    // The watchlist URL also matches collectionUrl, so it has to be checked first or the
+    // collection lookup below fails and breaks URL routing
+    if (regex.watchlistUrl.test(url))
+        return true;
+
     if (regex.collectionUrl.test(url)) { // Detect collection URL
-        const collectionType = getCollectionDetails(getSeriesId(url))?.type;
+        const id = getSeriesId(url);
+        if (id == null)
+            return false;
+
+        const collectionType = getCollectionDetails(id, false)?.type;
         // Detect if collection is a playlist or home category
         return collectionType == 'playlist' || collectionType == 'category';
-    } else {
-        return regex.watchlistUrl.test(url); // Detect user's watchlist URL
     }
+
+    return false;
 }
 
 // Get playlist
@@ -300,11 +347,15 @@ source.getPlaylist = function (url, id, bearer, page = 1) {
 
     const context = {url: url, playlistId: id, bearer: bearer, pages: playlistVideos.pagination.count, perPage: playlistVideos.pagination.per_page};
 
+    // Categories can come back without a thumbnail (or with a placeholder), fall back to the platform banner
+    const playlistThumbnail = playlist.thumbnails?.['16_9']?.large;
+    const thumbnail = (!playlistThumbnail || playlistThumbnail.includes('default')) ? platform.banner : playlistThumbnail;
+
     // Return playlist
     return new PlatformPlaylistDetails({
         id: new PlatformID(platform.title, String(playlist.id), config.id),
         name: playlist.title,
-        thumbnails: new Thumbnails([new Thumbnail(playlist.thumbnails?.['16_9']?.large)]),
+        thumbnails: new Thumbnails([new Thumbnail(thumbnail)]),
         author: new PlatformAuthorLink(
             new PlatformID(
                 platform.title, 
@@ -316,7 +367,7 @@ source.getPlaylist = function (url, id, bearer, page = 1) {
             platform.icon,
         ),
         url,
-        thumbnail: playlist.thumbnails?.['16_9']?.large,
+        thumbnail: thumbnail,
         contents: new PlaylistContentsPager(playlistVideos.videos, playlistVideos.pagination.count > playlistVideos.pagination.current, context)
     });
 }
@@ -328,10 +379,11 @@ source.getUserPlaylists = function () {
 
 // Search playlists
 source.searchPlaylists = function (query, type, order, filters, continuationToken) {
-    const hasMore = false; // Are there more pages?
-    const context = { query: query, type: type, order: order, filters: filters, continuationToken: continuationToken }; // Relevant data for the next page
-    return new SearchPlaylistsPager(getSearchResults(1, query, 'playlist'), hasMore, context);
+    const result = getSearchResults(1, query, 'playlist');
+    return new SearchPlaylistsPager(result.results, result.hasMore, { query: query, page: 1 });
 }
+
+// ============================== Comments ==============================
 
 // Get video comments
 source.getComments = function (url, continuationToken) {
@@ -344,7 +396,7 @@ source.getComments = function (url, continuationToken) {
         throw new ScriptException(`Failed to retrieve comments [${commentsResp.code}]`);
 
     // Map comments
-	const comments = JSON.parse(commentsResp.body)?._embedded?.comments?.map(comment =>
+    const comments = JSON.parse(commentsResp.body)?._embedded?.comments?.map(comment =>
         parseComment(comment, url, { id: String(comment.id ?? '') })
     ) ?? [];
 
@@ -356,29 +408,23 @@ source.getComments = function (url, continuationToken) {
 // Get sub comments
 source.getSubComments = function (comment) {
     // Parse comment if string
-	if (typeof comment === 'string') {
-		try {
-			comment = JSON.parse(comment);
-		} catch (e) {
-			return new CommentPager([], false);
-		}
-	}
+    if (typeof comment === 'string') {
+        try {
+            comment = JSON.parse(comment);
+        } catch (e) {
+            return new CommentPager([], false);
+        }
+    }
 
     if (!comment || !comment.contextUrl || !comment.context || !comment.context.id) {
         return new CommentPager([], false);
     }
 
     // Comment parameters
-    const params = {
-        count: 5,
-        offset: 0,
-        parent_id: comment.context.id,
-        sort_by: 'best',
-        child_count: comment.replyCount ?? 0,
-    };
-
-    return getSubCommentsPager(comment.contextUrl, params, 1);
+    return getSubCommentsPager(comment.contextUrl, comment.context.id);
 }
+
+// ============================== Helpers ==============================
 
 /**
  * Map a comment API object into a Comment instance
@@ -388,7 +434,8 @@ source.getSubComments = function (comment) {
  * @returns {Comment}
  */
 function parseComment(comment, contextUrl, context) {
-    let name = comment._embedded?.customer?.name;
+    const customer = comment._embedded?.customer;
+    let name = customer?.name;
 
     // Handle cases where comment author name doesn't exist, common for comments on TrilogyPlus
     if (!name || name == '')
@@ -400,7 +447,7 @@ function parseComment(comment, contextUrl, context) {
             new PlatformID(platform.title, name, String(config.id ?? '')),
             name,
             '',
-            getAvatar(comment._embedded?.customer?.thumbnail?.medium, name)
+            getAvatar(customer?.thumbnail?.medium, customer?.id, customer?.name)
         ),
         message: String(comment.content ?? ''),
         rating: new RatingLikes(comment.like_count ?? 0),
@@ -411,16 +458,15 @@ function parseComment(comment, contextUrl, context) {
 }
 
 /**
- * Get paginated sub-comments for a comment
+ * Get the sub-comments (replies) of a comment
  * @param {string} contextUrl - URL of the parent video
- * @param {object} params - Request parameters (count, offset, parent_id, sort_by)
- * @param {number} page - Page number for pagination
+ * @param {string|number} parentId - ID of the comment to fetch replies for
  * @returns {CommentPager}
  */
-function getSubCommentsPager(contextUrl, params, page) {
+function getSubCommentsPager(contextUrl, parentId) {
     // Retrieve sub comments
     const commentsResp = httpGET(
-        api.comments + params.parent_id,
+        api.comments + parentId,
         true,
         false
     );
@@ -429,7 +475,7 @@ function getSubCommentsPager(contextUrl, params, page) {
         throw new ScriptException(`Failed to retrieve comments [${commentsResp.code}]`);
 
     // Map comments
-	const comments = JSON.parse(commentsResp.body)?._embedded?.comments?.map(subComment =>
+    const comments = JSON.parse(commentsResp.body)?._embedded?.comments?.map(subComment =>
         parseComment(subComment, contextUrl, { id: String(subComment.id ?? '') })
     ) ?? [];
     
@@ -452,7 +498,7 @@ function getBearer(useAuth, html) {
 
         const bearer = extractDetail(siteResp.body, regex.bearerToken);
         if (!bearer || typeof(bearer) !== 'string')
-            throw new ScriptException(`Bearer token not found in HTML ${siteResp.body}`);
+            throw new ScriptException(`Bearer token not found in page HTML (${siteResp.body.length} characters fetched)`);
 
         // When expecting an authenticated session, verify the user is actually logged in.
         // The _session cookie may still exist locally but the server-side session can expire,
@@ -475,13 +521,13 @@ function getBearer(useAuth, html) {
 function getPlatformPlaylist(playlist) {
     const playlistThumbnail = playlist.thumbnails?.['16_9']?.medium;
     // Handle cases where thumbnail is nonexistant, mainly in the case of categories
-    const thumbnail = (!playlistThumbnail || playlistThumbnail.includes('default')) && platform.icon || playlistThumbnail;
+    const thumbnail = (!playlistThumbnail || playlistThumbnail.includes('default')) && platform.banner || playlistThumbnail;
     return new PlatformPlaylist({
         id: new PlatformID(platform.title, playlist.id.toString(), config.id),
         author: new PlatformAuthorLink(
             new PlatformID(
                 platform.title, 
-                playlist.site_id.toString(), 
+                playlist.site_id?.toString() ?? null,
                 config.id
             ), 
             platform.title, 
@@ -489,7 +535,7 @@ function getPlatformPlaylist(playlist) {
             platform.icon
         ),
         name: playlist.title,
-        thumbnail: thumbnail || platform.icon,
+        thumbnail: thumbnail || platform.banner,
         videoCount: playlist.videos_count,
         url: playlist.page_url
     });
@@ -555,7 +601,8 @@ function getPlaylistVideos(id, page, bearer) {
 
     for (const v of Object.values(playlistVideos.items)) {
         const video = v.entity;
-        const channel = video.metadata?.series?.id && getCollectionDetails(video.metadata.series.id, false, bearer);
+        const seriesId = video.metadata?.series?.id;
+        const channel = seriesId && getCollectionDetails(seriesId, false, bearer);
         if (video.type == 'video')
             results.push(getPlatformVideo(video, channel));
     }
@@ -564,22 +611,15 @@ function getPlaylistVideos(id, page, bearer) {
 }
 
 /**
- * Get videos for the home feed or uncategorized (dummy) channel,
- * @param {number} page - Page index (0 = home feed, >0 = new releases)
- * @param {boolean} excludeCategorized - Exclude videos that belong to a series
- * @param {string} [query] - Optional search query to filter results
+ * Get the home feed videos for the homepage collection selected in the plugin settings
  * @returns {PlatformVideo[]}
  */
-function getHomeResults(page, excludeCategorized = false, query)  {
-    // Use specified home feed from settings, 
-    // if excludeCategorized is enabled then it should only be the new releases feed for the dummy channel
-    const collectionId = excludeCategorized && 1 || settings.homeFeedSource;
-
+function getHomeResults() {
     const bearer = getBearer();
 
     const homeResp = httpGET(
-        api.collections + homepageIds[collectionId] + '/items', 
-        true, 
+        api.collections + homepageIds[settings.homeFeedSource] + '/items',
+        true,
         false,
         bearer
     );
@@ -599,19 +639,90 @@ function getHomeResults(page, excludeCategorized = false, query)  {
         if ( entity.type == 'series' )
             continue;
 
-        // An extra request is required for each video due to the feed API not having accurate data if videos are a part of series
-        const channel = entity.metadata?.series?.id != null && getCollectionDetails(entity.metadata?.series?.id, false, bearer)
+        // Series details are only needed for the author link, so only fetch them for the videos we keep
+        const seriesId = entity.metadata?.series?.id;
+        const channel = seriesId != null && getCollectionDetails(seriesId, false, bearer);
 
-        // Exclude videos that are a part of a series (for the uncategorized channel)
-        if (excludeCategorized && channel)
-            continue;
-
-        // Check if it matches the query (for channel search)
-        if (query && entity.title.toLowerCase().includes(query.toLowerCase()) || !query)
-            results.push(getPlatformVideo(entity, channel));
+        results.push(getPlatformVideo(entity, channel));
     }
 
     return results;
+}
+
+/**
+ * Get every uncategorized (non-series) video, newest first.
+ *
+ * Site search is the only endpoint that reaches the whole catalogue with each video's
+ * series inline, so videos that belong to no series can be filtered without fetching
+ * their collection details. The search API ignores every sort parameter and returns
+ * its results in relevance order, so the whole catalogue is fetched up front and sorted
+ * here. Page 1 fixes the total and is fetched on its own; the remaining pages are
+ * fetched in a single parallel batch (the engine runs http.batch() concurrently), which
+ * keeps the walk to roughly one request's wall time instead of one request per page.
+ * @param {string} [query] - Optional search query, falls back to the wildcard when empty
+ * @returns {PlatformVideo[]}
+ */
+function getUncategorizedVideos(query) {
+    const cacheKey = query || '';
+    if (uncategorizedCache[cacheKey])
+        return uncategorizedCache[cacheKey];
+
+    const q = (query && query.trim().length > 0) ? query.trim() : '*';
+    const bearer = getBearer();
+    const headers = {
+        Authorization: `Bearer ${bearer}`,
+        Accept: 'application/json',
+        Referer: platform.url
+    };
+    const pageUrl = p => `${api.base}search?q=${encodeURIComponent(q)}&type=video&page=${p}&per_page=${SEARCH_PER_PAGE}`;
+
+    // Page 1 both fixes the total and contributes the first results
+    const first = httpGET(pageUrl(1), true, false, bearer);
+    if (!first.isOk)
+        throw new ScriptException(`Search page 1 failed [${first.code}]`);
+
+    let raw = [...(JSON.parse(first.body).results ?? [])];
+    const total = (JSON.parse(first.body).pagination ?? {}).count ?? 0;
+    const pageCount = Math.ceil(total / SEARCH_PER_PAGE);
+
+    // Fetch the remaining pages in one parallel batch
+    if (pageCount > 1) {
+        let builder = http.batch();
+        for (let p = 2; p <= pageCount; p++)
+            builder = builder.GET(pageUrl(p), headers, false);
+
+        const responses = builder.execute();
+        for (const resp of Object.values(responses)) {
+            if (!resp.isOk)
+                throw new ScriptException(`Search page failed [${resp.code}]`);
+            raw.push(...(JSON.parse(resp.body).results ?? []));
+        }
+    }
+
+    // Dedup by id: the same video can surface on more than one page
+    const seen = {};
+    const entities = [];
+    for (const e of Object.values(raw)) {
+        const entity = e.entity;
+
+        // Series are their own channel, everything else here is uncategorized
+        if (entity.type != 'video')
+            continue;
+        if (entity.metadata?.series?.id != null)
+            continue;
+
+        const id = String(entity.id);
+        if (seen[id])
+            continue;
+        seen[id] = true;
+        entities.push(entity);
+    }
+
+    // Newest first, by the same date the video displays
+    entities.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
+    uncategorizedCache[cacheKey] = entities.map(entity => getPlatformVideo(entity, null));
+    return uncategorizedCache[cacheKey];
 }
 
 /**
@@ -628,9 +739,20 @@ function getChannelVideosPager(url, type, order, filters, continuationToken, que
     let hasMore = false; // Are there more pages?
     let context = { url: url, query: null, type: type, order: order, filters: filters, continuationToken: continuationToken }; // Relevant data for the next page
 
-    // Check if channel is the non-series (dummy) channel, then return the uncategorized videos
-    if (url == platform.url )
-        return new ChannelContentsPager(getHomeResults(0, true, query), hasMore, context);
+    // Check if channel is the non-series (dummy) channel, then return the uncategorized videos.
+    // Site search lists every video on the platform with its series inline, so videos without a
+    // series can be filtered out without any extra request, and the whole catalogue is reachable
+    // through pagination instead of only the curated New Releases feed.
+    if (url == platform.url) {
+        const videos = getUncategorizedVideos(query);
+        // page 0 is what the constructor hands out; nextPage() advances to page 1
+        const context = { videos: videos, page: 0 };
+        return new UncategorizedContentsPager(
+            videos.slice(0, UNCATEGORIZED_PER_PAGE),
+            videos.length > UNCATEGORIZED_PER_PAGE,
+            context
+        );
+    }
 
     const bearer = getBearer();
     const channelResp = httpGET(url, false, false, bearer);
@@ -674,29 +796,43 @@ function getChannelVideosPager(url, type, order, filters, continuationToken, que
 }
 
 /**
+ * Query the site search API
+ * @param {number} page - Page number
+ * @param {string} query - Search query string
+ * @param {string} type - Result type ('video' or 'collection')
+ * @param {number} [perPage] - Results per page, defaults to SEARCH_PER_PAGE
+ * @param {string} [bearer] - Bearer token, fetched when omitted
+ * @returns {{results: object[], total: number}}
+ */
+function searchSite(page, query, type, perPage, bearer) {
+    bearer = bearer || getBearer();
+
+    const searchResp = httpGET(
+        `${api.base}search?q=${encodeURIComponent(query)}&type=${type}&page=${page}&per_page=${perPage ?? SEARCH_PER_PAGE}`,
+        true,
+        false,
+        bearer
+    );
+
+    if (!searchResp.isOk)
+        throw new ScriptException(`Search for '${query}' (${type}) failed with code [${searchResp.code}]`);
+
+    const data = JSON.parse(searchResp.body);
+    return { results: data.results ?? [], total: data.pagination?.count ?? 0 };
+}
+
+/**
  * Search for videos, series, or playlists
  * @param {number} page - Page number
  * @param {string} query - Search query string
  * @param {string} returnType - Type of results ('video', 'series', or 'playlist')
- * @returns {Array<PlatformVideo|PlatformChannel|PlatformPlaylist>}
+ * @returns {{results: Array<PlatformVideo|PlatformChannel|PlatformPlaylist>, hasMore: boolean}}
  */
 function getSearchResults(page, query, returnType) {
-    // Determine which query parameter to use, it will be by collection if the returnType is for a series or playlist
-    const searchType = ((returnType == 'series' || returnType == 'playlist') && 'collection') || returnType
-
-    const bearer = getBearer()
-    
-    const searchResp = httpGET(
-        `${api.base}search?q=${query}&type=${searchType}&page=${page}`,
-        true, 
-        false,
-        bearer
-    );
-    
-    if (!searchResp.isOk)
-        throw new ScriptException(`Search type ${searchType} failed with code [${searchResp.code}]`);
-
-    const responseResults = JSON.parse(searchResp.body).results
+    // Series and playlists are both collections to the search API
+    const searchType = (returnType == 'series' || returnType == 'playlist') ? 'collection' : returnType;
+    const bearer = getBearer();
+    const search = searchSite(page, query, searchType, SEARCH_PER_PAGE, bearer);
 
     const results = [];
 
@@ -706,9 +842,9 @@ function getSearchResults(page, query, returnType) {
         if (platform.title.toLowerCase().includes(query.toLowerCase()))
             results.push(getPlatformChannel());
     }
-    
+
     // Loop through results
-    for (const e of Object.values(responseResults)) {
+    for (const e of Object.values(search.results)) {
         const entity = e.entity
 
         // Detect content type
@@ -718,33 +854,44 @@ function getSearchResults(page, query, returnType) {
             } else if (returnType == 'playlist') {
                 results.push(getPlatformPlaylist(entity));
             } else if (returnType == 'video') {
-                const channel = entity.metadata?.series?.id != null && getCollectionDetails(entity.metadata?.series?.id, false, bearer);
+                const seriesId = entity.metadata?.series?.id;
+                const channel = seriesId && getCollectionDetails(seriesId, false, bearer);
 
                 results.push(getPlatformVideo(entity, channel));
             }
         }
     }
 
-    return results;
+    return { results, hasMore: (page * SEARCH_PER_PAGE) < search.total };
 }
 
 /**
  * Get avatar URL for a comment author
+ *
+ * Customers with an uploaded avatar come back with a real image URL and are passed
+ * through. Customers without one come back with Gravatar's `d=blank`, which renders as
+ * nothing, so the pair Trilogy Plus itself displays is rendered instead: the site's
+ * palette colour, keyed by the customer's id, behind the first character of their name
+ * in white. Comments only support image avatars, so that pair is rendered to an image
+ * with the UI Avatars API rather than with CSS.
  * @param {string} [avatar] - Avatar URL from the API
- * @param {string} [name] - Author name for generating fallback avatar
+ * @param {number} [customerId] - Customer id, selects the fallback colour
+ * @param {string} [name] - Customer name, supplies the initial letter
  * @returns {string} Avatar URL
  */
-function getAvatar(avatar, name) {
-    if (avatar && avatar.includes('blank')) {
-        // Avatar is miscellaneous, return generated avatar using UI Avatars API
-        return `${api.uiAvatars}${stringToHexColor(name)}&name=${name.replace(/ /g, '+')}`;
-    } else if (avatar) {
-        // Avatar is valid, return self
-        return avatar
-    } else {
-        // Return platform icon in the worst case scenario
-        return platform.icon
-    }
+function getAvatar(avatar, customerId, name) {
+    if (avatar && !avatar.includes('d=blank'))
+        return avatar;
+
+    // Trilogy Plus's fallback palette, indexed by customer id the same way the site does;
+    // the '#' is dropped because it would terminate the query string
+    const fallbackColors = ["#144f79", "#8a3b7f", "#d1184d", "#da7868", "#9eba41", "#226657", "#30909d", "#999999"];
+    const color = (fallbackColors[Number(customerId) % fallbackColors.length] ?? "#144f79").substring(1);
+
+    // The site uppercases the first character of the name for the letter
+    const initial = (name || '').trim().charAt(0).toUpperCase();
+
+    return `${api.uiAvatars}${color}&name=${encodeURIComponent(initial)}`;
 }
 
 /**
@@ -766,24 +913,12 @@ function httpGET(url, useMethod, useAuth, bearer) {
             Referer: platform.url 
         } || {};
     
-    const response = http.GET(url, method, useAuth);
+    // useAuth can arrive undefined when a caller omits it (isChannelUrl / isPlaylistUrl call
+    // getCollectionDetails with a single argument), and the engine cannot bind undefined to
+    // http.GET's bool parameter
+    const response = http.GET(url, method, !!useAuth);
 
     return response;
-}
-
-/**
- * Convert a string to a hex color code for avatar backgrounds
- * @param {string} str - Input string
- * @returns {string} Hex color string (6 digits)
- */
-function stringToHexColor(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    // Convert hash to a 6-digit hex string
-    const color = (hash & 0x00FFFFFF).toString(16).padStart(6, '0');
-    return color;
 }
 
 /**
@@ -791,7 +926,7 @@ function stringToHexColor(str) {
  * @param {string} url - Video page URL
  * @param {string} bearer - Bearer token
  * @param {boolean} useAuth - Whether to use authenticated requests
- * @returns {object} Video details from API with added user_has_sub field
+ * @returns {object} Video details from API
  */
 function getVideoDetails(url, bearer, useAuth) {
     const videoResp = httpGET(
@@ -805,22 +940,17 @@ function getVideoDetails(url, bearer, useAuth) {
     
     const id = extractDetail(videoResp.body, regex.videoId);
 
-    const videoDetailsResp = httpGET(
-        `https://api.vhx.tv/videos/${id}`, 
-        true, 
-        useAuth,
-        bearer
-    );
+    const videoDetailsResp = httpGET(api.videos + id, true, useAuth, bearer);
 
     if (!videoDetailsResp.isOk)
         throw new ScriptException(`Failed to retrieve video details [${videoDetailsResp.code}]`);
 
-    const details = JSON.parse(videoDetailsResp.body);
-
-    details.user_has_sub = extractDetail(videoResp.body, regex.userHasSub);
-
-    return details;
+    return JSON.parse(videoDetailsResp.body);
 }
+
+// Collection details (title, thumbnails, type) change rarely and the same series shows up
+// repeatedly within a single listing, so results are cached for the lifetime of the script
+const collectionDetailsCache = new Map();
 
 /**
  * Get collection (series/playlist) details by ID
@@ -830,12 +960,19 @@ function getVideoDetails(url, bearer, useAuth) {
  * @returns {object} Collection details
  */
 function getCollectionDetails(id, userAuth, bearer) {
+    const key = String(id);
+    const cached = collectionDetailsCache.get(key);
+    if (cached)
+        return cached;
+
     const channelDetailsResp = httpGET(api.collections + id, true, userAuth, bearer);
 
     if (!channelDetailsResp.isOk)
         throw new ScriptException(`Failed to retrieve details for collection ${id} [${channelDetailsResp.code}]`);
 
-    return JSON.parse(channelDetailsResp.body);
+    const details = JSON.parse(channelDetailsResp.body);
+    collectionDetailsCache.set(key, details);
+    return details;
 }
 
 /**
@@ -865,7 +1002,7 @@ function getCollectionVideos(id, bearer, page) {
  */
 function getWatchlistVideos(bearer, userId, page) {
     const resp = httpGET(
-        'https://api.vhx.tv/customers/' + userId + '/watchlist?product=122755&collection=https://api.vhx.tv/customers/' + userId + '/watchlist&per_page=12&include_products=true&page=' + page,
+        api.customers + userId + '/watchlist?product=' + WATCHLIST_PRODUCT_ID + '&collection=' + api.customers + userId + '/watchlist&per_page=' + WATCHLIST_PER_PAGE + '&include_products=true&page=' + page,
         true,
         true,
         bearer
@@ -895,36 +1032,44 @@ function getWatchlistVideos(bearer, userId, page) {
         }, channel);
     });
 
-    // Determine if more pages exist using total from response (per_page is always 12)
-    const hasMore = data.total ? (page * 12) < data.total : false;
+    // Determine if more pages exist using total from response
+    const hasMore = data.total ? (page * WATCHLIST_PER_PAGE) < data.total : false;
     return { videos, hasMore };
 }
 
 /**
- * Get list of collections (categories) from hubs
+ * Get a page of site categories.
+ *
+ * The categories endpoint returns both `category`- and `playlist`-type collections with each
+ * one's id, title, page_url, thumbnails and site_id inline, so no per-item collection details
+ * or page scraping is needed; only the category ones are returned here. (The previous hubs
+ * endpoint needed three requests per item and its pagination was tracked with the wrong
+ * page size.)
  * @param {number} page - Page number
  * @param {string} bearer - Bearer token
  * @returns {{results: PlatformPlaylist[], count: number}}
  */
 function getCollectionLists(page, bearer) {
     bearer = bearer || getBearer();
-    const collectionsResp = httpGET(api.hubs + page, true, false, bearer);
+
+    const collectionsResp = httpGET(
+        `${api.categories}?page=${page}&per_page=${CATEGORIES_PER_PAGE}`,
+        true,
+        false,
+        bearer
+    );
 
     if (!collectionsResp.isOk)
         throw new ScriptException(`Failed to retrieve collections [${collectionsResp.code}]`);
 
-    const collections = JSON.parse(collectionsResp.body);
+    const data = JSON.parse(collectionsResp.body);
+    // `/categories` lists both category- and playlist-type collections; the playlists tab
+    // has always shown only the category ones (series have their own channel)
+    const results = Object.values(data.categories ?? [])
+        .filter(category => category.type == 'category')
+        .map(category => getPlatformPlaylist(category));
 
-    const results = [];
-
-    for (const collection of Object.values(collections._embedded?.items ?? [])) {
-        const collectionInfo = getCollectionDetails(getSeriesId(collection._links.collection_page.href), false, bearer);
-        
-        if (collectionInfo.type == 'category')
-            results.push(getPlatformPlaylist(collectionInfo));
-    }
-
-    return {results, count: collections.total};
+    return {results, count: data.pagination?.count ?? results.length};
 }
 
 /**
@@ -957,6 +1102,8 @@ function getSeriesId(url) {
     return extractDetail(seriesResp.body, regex.channelId);
 }
 
+// ============================== Pagers ==============================
+
 class CommentsPager extends CommentPager {
     constructor(results, hasMore, context) {
         super(results, hasMore, context);
@@ -967,38 +1114,32 @@ class CommentsPager extends CommentPager {
     }
 }
 
-class HomePager extends VideoPager {
-	constructor(initialResults, hasMore) {
-		super(initialResults, hasMore);
-        this.page = 0;
-	}
-	
-	nextPage() {
-        this.page++;
-        this.results = getHomeResults(this.page);
-        this.hasMore = false;
-		return this;
-	}
-}
-
 class SearchResultsPager extends VideoPager {
-	constructor(results, hasMore, context) {
-		super(results, hasMore, context);
-	}
-	
-	nextPage() {
-		return source.search(this.context.query, this.context.type, this.context.order, this.context.filters, this.context.continuationToken);
-	}
+    constructor(results, hasMore, context) {
+        super(results, hasMore, context);
+    }
+
+    nextPage() {
+        this.context.page++;
+        const result = getSearchResults(this.context.page, this.context.query, 'video');
+        this.results = result.results;
+        this.hasMore = result.hasMore;
+        return this;
+    }
 }
 
 class SearchPlaylistsPager extends VideoPager {
-	constructor(results, hasMore, context) {
-		super(results, hasMore, context);
-	}
-	
-	nextPage() {
-		return source.searchPlaylists(this.context.query, this.context.type, this.context.order, this.context.filters, this.context.continuationToken);
-	}
+    constructor(results, hasMore, context) {
+        super(results, hasMore, context);
+    }
+
+    nextPage() {
+        this.context.page++;
+        const result = getSearchResults(this.context.page, this.context.query, 'playlist');
+        this.results = result.results;
+        this.hasMore = result.hasMore;
+        return this;
+    }
 }
 
 class PlaylistContentsPager extends VideoPager {
@@ -1059,21 +1200,41 @@ class WatchlistContentsPager extends VideoPager {
 }
 
 class SearchChannelsPager extends ChannelPager {
-	constructor(results, hasMore, context) {
-		super(results, hasMore, context);
-	}
-	
-	nextPage() {
-		return source.searchChannels(this.context.query, this.context.continuationToken);
-	}
+    constructor(results, hasMore, context) {
+        super(results, hasMore, context);
+    }
+
+    nextPage() {
+        this.context.page++;
+        const result = getSearchResults(this.context.page, this.context.query, 'series');
+        this.results = result.results;
+        this.hasMore = result.hasMore;
+        return this;
+    }
+}
+
+class UncategorizedContentsPager extends VideoPager {
+    constructor(results, hasMore, context) {
+        super(results, hasMore, context);
+    }
+
+    // The full sorted list is already in hand, so later pages are local slices
+    nextPage() {
+        this.context.page++;
+        const start = this.context.page * UNCATEGORIZED_PER_PAGE;
+        const end = start + UNCATEGORIZED_PER_PAGE;
+        this.results = this.context.videos.slice(start, end);
+        this.hasMore = end < this.context.videos.length;
+        return this;
+    }
 }
 
 class ChannelContentsPager extends VideoPager {
-	constructor(results, hasMore, context) {
-		super(results, hasMore, context);
-	}
-	
-	nextPage() {
-		return source.getChannelContents(this.context.url, this.context.type, this.context.order, this.context.filters, this.context.continuationToken);
-	}
+    constructor(results, hasMore, context) {
+        super(results, hasMore, context);
+    }
+    
+    nextPage() {
+        return source.getChannelContents(this.context.url, this.context.type, this.context.order, this.context.filters, this.context.continuationToken);
+    }
 }

@@ -7,10 +7,10 @@
   "sourceUrl": "https://raw.githubusercontent.com/b-risk/grayjay-trilogy-plus/refs/heads/main/TrilogyPlusConfig.json",
   "scriptUrl": "./TrilogyPlusScript.js",
   "repositoryUrl": "https://github.com/b-risk/grayjay-trilogy-plus",
-  "version": 6,
+  "version": 7,
   "iconUrl": "./TrilogyPlusIcon.png",
   "id": "ca4747c0-7fff-4909-a448-545f54e7f8ee",
-  "scriptSignature": "MEgL9diwe16TnJhUgH6qLeIT9Pm/OuKPgt9e9kG5RkFx0TCsZ7iAJdaGeBIbEZnedD0DHvJ8E45BsEKMoeVMszoK/c73idHs2780IJQZ9BjFY3rXOjG5aSPVAXhI2oOZVGSjlT4c6Iemqut6n4w/DNnPgfNNH4x5pg3R3K2gbLKPcJXqo2U79mx5jto1dRpxBOZZhAgC9FhWoGKmhofFTaSIIULt0JV1ix+yUaJR8Peg87tQNuy9eo+ooRsYdIiWpTGgYvwIaIIA/cI1LPO+P18FF9e1Gd1TrcncBD4vsZmtYW9GHi9mLWZ7pSxF9NqwS+dqVXamHfptLLiQHypvcg==",
+  "scriptSignature": "khXhwfS05tER24tIiLS3bbjE/aZRfnsgJjTYa5C9cn44TmXDxONR+O7MmWq2NeJ/XYn8zfyQCDUoV5wUYd/ptM/2S3ug5h6TB944IXSfeooRuXt8zwImTLdCMYjYXLWSvitmfmo4SJt8YiYfEMOdlsCNnbA/77azVb122gBHfGgF42tG1ItdxqZ/J3hAc0kpKd7p8iu67XSJHfOruMrMH8py05/IyrocCRYIyYJcSboXEW2RbHQZslIvgN0q9HOXheDBTjrz8y1WCKdTdXOqd873tNHjHeH+EP9h6anePibZSd2sZwRElwJAxNJs4wFvMJ4t+AxauF4+k3NyO+ip1A==",
   "scriptPublicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwZvsFJWq+NS4z6Ymcsk8L4JcpbCheaQb2XKjfdz1sEEp4evgsVVFWPW1PcoF+KHwkxkoeqEyH6xwTzF083E4H1xHpt3hZzkZGlyLbFNE/zykpZ6CebuYwV0tIQeciUe4k/sASIW88COEpr4cP1L4PnpsQVgBYHbSDWC8184TZn4a2aBokmuEuOAIp1S3j9SDV2bxwv8i20E62ziybn9LpKQqrXf1wzXw90ZQWMx8ew4vbYCGsJszg4L9PE1CcahRlX5yqlyduh6SWii7+MgtA5GFrKnsWSPfO4Lq6A/t1o12yaqaPyqNu9GDfGsW7LajsPTVIQsM4E6YVzMMofSs3QIDAQAB",
   "packages": [
     "Http",
@@ -31,13 +31,12 @@
   ],
   "authentication": {
     "loginUrl": "https://www.trilogyplus.com/login",
+    "completionUrl": "https://www.trilogyplus.com/browse?*",
     "cookiesToFind": [
       "_session",
       "__cf_bm"
     ],
-    "headersToFind": [
-      "Authorization"
-    ],
+    "headersToFind": [],
     "userAgent": "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.230 Mobile Safari/537.36"
   },
   "captcha": {
@@ -92,6 +91,14 @@
     ],
     "6": [
       "Fixed login flow: removed domainHeadersToFind that was blocking header capture"
+    ],
+    "7": [
+      "Fixed several login issues",
+      "The Trilogy Plus channel now lists every uncategorized video via site search instead of the limited new releases section",
+      "Fixed series and playlists",
+      "Fixed search result pagination",
+      "Fixed the playlists tab for the Trilogy Plus channel",
+      "Playlists without a thumbnail fall back to the platform banner"
     ]
   }
 }

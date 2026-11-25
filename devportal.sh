@@ -127,11 +127,45 @@ fi
 
 # ── Commands ──────────────────────────────────────────────────────────
 
+# Build the config the device should load: point sourceUrl/scriptUrl/iconUrl at this
+# machine so the device fetches the local files rather than the published ones, and
+# cache-bust every URL so a redeploy of a changed script is not served from a stale
+# cache keyed by the unchanged URL. Only the copy POSTed to the Dev Portal is
+# patched; the repo config keeps its clean production URLs.
+#
+# Note that sourceUrl must point at the *config*, not the script: the Dev Portal
+# resolves AbsoluteScriptUrl from it.
+build_deploy_config() {
+    local raw
+    raw=$(curl -s "$PLUGIN_URL")
+    if [ -z "$raw" ]; then
+        echo "ERROR: Cannot fetch $PLUGIN_URL — is the HTTP server running?" >&2
+        exit 1
+    fi
+    echo "$raw" | python3 -c "
+import sys, json, time
+config = json.load(sys.stdin)
+base = 'http://$LOCAL_IP:$PLUGIN_PORT/'
+bust = str(int(time.time()))
+def localise(url):
+    url = url or ''
+    if url.startswith('./'):
+        return base + url[2:] + '?v=' + bust
+    name = url.split('/')[-1].split('?')[0]
+    return base + name + '?v=' + bust if name else url
+config['sourceUrl'] = localise(config.get('sourceUrl') or base + '$CONFIG_NAME')
+config['scriptUrl'] = localise(config.get('scriptUrl'))
+if config.get('iconUrl', '').startswith('./'):
+    config['iconUrl'] = localise(config['iconUrl'])
+print(json.dumps(config))
+"
+}
+
 load_config() {
     local json
-    json=$(curl -s "$PLUGIN_URL")
+    json=$(build_deploy_config)
     if [ -z "$json" ]; then
-        echo "ERROR: Cannot fetch $PLUGIN_URL — is the HTTP server running?" >&2
+        echo "ERROR: Cannot build the deploy config — is the HTTP server running?" >&2
         exit 1
     fi
     echo "=== Loading plugin config ==="
@@ -143,9 +177,9 @@ load_config() {
 
 inject() {
     local json
-    json=$(curl -s "$PLUGIN_URL")
+    json=$(build_deploy_config)
     if [ -z "$json" ]; then
-        echo "ERROR: Cannot fetch $PLUGIN_URL — is the HTTP server running?" >&2
+        echo "ERROR: Cannot build the deploy config — is the HTTP server running?" >&2
         exit 1
     fi
     echo "=== Injecting plugin onto device ==="
@@ -157,19 +191,10 @@ inject() {
 }
 
 deploy() {
-    # Fetch config from local server and patch URLs to point to local IP
     local json
-    json=$(curl -s "http://$LOCAL_IP:$PLUGIN_PORT/$(basename "$CONFIG_FILE")" | python3 -c "
-import sys, json
-config = json.load(sys.stdin)
-config['sourceUrl'] = 'http://$LOCAL_IP:$PLUGIN_PORT/' + config.get('scriptUrl', '').lstrip('./')
-config['scriptUrl'] = 'http://$LOCAL_IP:$PLUGIN_PORT/' + config.get('scriptUrl', '').lstrip('./')
-if config.get('iconUrl', '').startswith('./'):
-    config['iconUrl'] = 'http://$LOCAL_IP:$PLUGIN_PORT/' + config['iconUrl'].lstrip('./')
-print(json.dumps(config))
-")
+    json=$(build_deploy_config)
     if [ -z "$json" ]; then
-        echo "ERROR: Cannot fetch plugin config from http://$LOCAL_IP:$PLUGIN_PORT/ — is the HTTP server running?" >&2
+        echo "ERROR: Cannot build the deploy config — is the HTTP server running?" >&2
         exit 1
     fi
 
